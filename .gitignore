@@ -1,0 +1,33 @@
+# Secrets
+.env
+config.local.yaml
+
+# Database files
+*.duckdb
+*.duckdb.wal
+
+# Pipeline outputs (generated, not source)
+output/
+logs_drop/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# VS Code
+.vscode/settings.json
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+test-env/

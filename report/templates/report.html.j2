@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance Test Analysis Report</title>
+<style>
+  :root {
+    --blue: #1e4db7; --green: #1a7a3a; --purple: #6a22aa;
+    --orange: #b05a10; --teal: #0e7490; --red: #b91c1c;
+    --bg: #0f0f1a; --card: #181828; --border: #2a2a40;
+    --text: #e0e0f0; --muted: #8888aa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg);
+         color: var(--text); padding: 32px; font-size: 13px; }
+
+  /* ─── Header ─── */
+  .header { text-align: center; margin-bottom: 32px; }
+  .header h1 { font-size: 22px; color: #7eb3ff; letter-spacing: 2px; text-transform: uppercase; }
+  .header .sub { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .verdict-badge {
+    display: inline-block; margin-top: 12px; padding: 6px 28px;
+    border-radius: 20px; font-size: 15px; font-weight: 800; letter-spacing: 3px;
+  }
+  .verdict-PASS { background: #14532d; color: #4ade80; border: 1px solid #4ade80; }
+  .verdict-FAIL { background: #450a0a; color: #f87171; border: 1px solid #f87171; }
+
+  /* ─── Summary cards row ─── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 28px; }
+  .kpi { background: var(--card); border: 1px solid var(--border);
+         border-radius: 8px; padding: 14px 16px; text-align: center; }
+  .kpi .val { font-size: 28px; font-weight: 800; }
+  .kpi .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase;
+               letter-spacing: 1px; margin-top: 4px; }
+  .kpi.critical .val { color: #f87171; }
+  .kpi.warn     .val { color: #fbbf24; }
+  .kpi.ok       .val { color: #4ade80; }
+  .kpi.info     .val { color: #60a5fa; }
+
+  /* ─── Sections ─── */
+  .section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    border-left: 3px solid var(--blue); padding-left: 10px;
+    color: #7eb3ff; margin-bottom: 14px;
+  }
+
+  /* ─── Executive summary box ─── */
+  .summary-box { background: var(--card); border: 1px solid var(--border);
+                 border-radius: 8px; padding: 16px 20px; line-height: 1.7; color: var(--text); }
+
+  /* ─── Cause-effect chain ─── */
+  .chain { list-style: none; }
+  .chain li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .chain li .num { background: var(--purple); color: #fff;
+                   border-radius: 50%; width: 22px; height: 22px; min-width: 22px;
+                   display: flex; align-items: center; justify-content: center;
+                   font-size: 10px; font-weight: 800; }
+  .chain li .txt { background: #1a0d2e; border: 1px solid #3a1060;
+                   border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5; }
+
+  /* ─── Hypothesis cards ─── */
+  .hyp-card { background: var(--card); border: 1px solid var(--border);
+              border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+  .hyp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .hyp-rank { background: var(--orange); color: #fff; border-radius: 50%;
+              width: 24px; height: 24px; min-width: 24px;
+              display: flex; align-items: center; justify-content: center;
+              font-size: 11px; font-weight: 800; }
+  .hyp-text { font-weight: 600; flex: 1; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 4px;
+           font-size: 10px; font-weight: 700; margin-left: auto; }
+  .badge-High   { background: #14532d; color: #4ade80; }
+  .badge-Medium { background: #431407; color: #fb923c; }
+  .badge-Low    { background: #1c1917; color: #a8a29e; }
+  .hyp-evidence { font-size: 11px; color: var(--muted); }
+
+  /* ─── Findings table ─── */
+  .findings-table { width: 100%; border-collapse: collapse; }
+  .findings-table th { background: #111; color: var(--muted); font-size: 10px;
+                       text-transform: uppercase; letter-spacing: 1px;
+                       padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .findings-table td { padding: 7px 10px; border-bottom: 1px solid #1a1a2e;
+                       font-size: 11px; vertical-align: top; }
+  .findings-table tr:hover td { background: #181828; }
+  .sev-critical { color: #f87171; font-weight: 700; }
+  .sev-warn     { color: #fbbf24; font-weight: 700; }
+  .sev-info     { color: #60a5fa; }
+
+  /* ─── Timeline ─── */
+  .tl-item { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+  .tl-dot  { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; min-width: 10px; }
+  .tl-dot.critical { background: #f87171; }
+  .tl-dot.warn     { background: #fbbf24; }
+  .tl-dot.info     { background: #60a5fa; }
+  .tl-ts   { font-size: 10px; color: var(--muted); min-width: 170px; }
+  .tl-desc { font-size: 11px; line-height: 1.5; }
+  .tl-src  { display: inline-block; background: #1e1e30; border: 1px solid var(--border);
+             border-radius: 3px; padding: 1px 6px; font-size: 9px;
+             color: var(--muted); margin-right: 6px; }
+
+  /* ─── Footer ─── */
+  .footer { text-align: center; color: var(--muted); font-size: 10px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+  <h1>AI-Driven Performance Test Analysis</h1>
+  <div class="sub">{{ company_name }} &nbsp;·&nbsp; Generated: {{ generated_at }} &nbsp;·&nbsp; Run ID: {{ run_id }}</div>
+  <div class="verdict-badge verdict-{{ verdict }}">{{ verdict }}</div>
+</div>
+
+<!-- ══ KPI SUMMARY ══ -->
+<div class="kpi-row">
+  <div class="kpi {% if finding_counts.total > 20 %}critical{% elif finding_counts.total > 5 %}warn{% else %}ok{% endif %}">
+    <div class="val">{{ finding_counts.total }}</div>
+    <div class="lbl">Total Findings</div>
+  </div>
+  <div class="kpi {% if finding_counts.threshold > 0 %}critical{% else %}ok{% endif %}">
+    <div class="val">{{ finding_counts.threshold }}</div>
+    <div class="lbl">SLA Breaches</div>
+  </div>
+  <div class="kpi {% if finding_counts.anomaly > 10 %}warn{% else %}info{% endif %}">
+    <div class="val">{{ finding_counts.anomaly }}</div>
+    <div class="lbl">Anomalies</div>
+  </div>
+  <div class="kpi {% if finding_counts.trend > 0 %}warn{% else %}ok{% endif %}">
+    <div class="val">{{ finding_counts.trend }}</div>
+    <div class="lbl">Degradation Trends</div>
+  </div>
+</div>
+
+<!-- ══ EXECUTIVE SUMMARY ══ -->
+<div class="section">
+  <div class="section-title">① Executive Summary</div>
+  <div class="summary-box">{{ summary }}</div>
+</div>
+
+<!-- ══ LEADING INDICATOR ══ -->
+{% if leading_indicator %}
+<div class="section">
+  <div class="section-title">② Leading Indicator</div>
+  <div class="summary-box">
+    <strong style="color:#fbbf24;">{{ leading_indicator.metric_name }}</strong>
+    &nbsp;—&nbsp; <span style="color:var(--muted);">{{ leading_indicator.source }}</span>
+    &nbsp;|&nbsp; First seen: {{ leading_indicator.timestamp }}
+    <br><br>{{ leading_indicator.description }}
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ CAUSE-EFFECT CHAIN ══ -->
+{% if cause_effect_chain %}
+<div class="section">
+  <div class="section-title">③ Cause → Effect Chain</div>
+  <ol class="chain">
+    {% for step in cause_effect_chain %}
+    <li>
+      <div class="num">{{ loop.index }}</div>
+      <div class="txt">{{ step }}</div>
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+<!-- ══ ROOT CAUSE HYPOTHESES ══ -->
+{% if scored_hypotheses %}
+<div class="section">
+  <div class="section-title">④ Root Cause Hypotheses (Ranked)</div>
+  {% for h in scored_hypotheses %}
+  <div class="hyp-card">
+    <div class="hyp-header">
+      <div class="hyp-rank">{{ loop.index }}</div>
+      <div class="hyp-text">{{ h.hypothesis }}</div>
+      <span class="badge badge-{{ h.confidence }}">{{ h.confidence }}</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> {{ h.evidence }}
+      &nbsp;|&nbsp; <strong>Sources:</strong> {{ h.sources_cited | join(", ") }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ SLA / THRESHOLD BREACHES ══ -->
+{% if raw_findings.threshold %}
+<div class="section">
+  <div class="section-title">⑤ SLA &amp; Threshold Breaches</div>
+  <table class="findings-table">
+    <thead>
+      <tr>
+        <th>Rule</th><th>Metric</th><th>Threshold</th><th>Actual</th>
+        <th>Breaches</th><th>Severity</th><th>Business KPI</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in raw_findings.threshold %}
+      <tr>
+        <td>{{ f.rule_name }}</td>
+        <td>{{ f.metric_name }}</td>
+        <td>{{ f.threshold }}</td>
+        <td><strong>{{ f.actual }}</strong></td>
+        <td>{{ f.breach_count }}</td>
+        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
+        <td>{{ f.business_kpi }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ TREND FINDINGS ══ -->
+{% if raw_findings.trend %}
+<div class="section">
+  <div class="section-title">⑥ Degradation Trends</div>
+  <table class="findings-table">
+    <thead>
+      <tr><th>Metric</th><th>Direction</th><th>Slope/min</th>
+          <th>p-value</th><th>R²</th><th>Severity</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {% for f in raw_findings.trend %}
+      <tr>
+        <td>{{ f.metric_name }}</td>
+        <td>{{ f.direction }}</td>
+        <td>{{ f.slope_per_min }}</td>
+        <td>{{ f.p_value }}</td>
+        <td>{{ f.r_squared }}</td>
+        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
+        <td>{{ f.description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ PATTERN FINDINGS ══ -->
+{% if raw_findings.pattern %}
+<div class="section">
+  <div class="section-title">⑦ Log Patterns Detected</div>
+  <table class="findings-table">
+    <thead>
+      <tr><th>Pattern</th><th>Count</th><th>Severity</th>
+          <th>Method</th><th>Description</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      {% for f in raw_findings.pattern %}
+      <tr>
+        <td>{{ f.pattern_name }}</td>
+        <td>{{ f.count }}</td>
+        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
+        <td>{{ f.method }}</td>
+        <td>{{ f.description }}</td>
+        <td style="font-family:monospace;font-size:10px;max-width:260px;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {{ f.examples[0] if f.examples else "" }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ UNIFIED TIMELINE (top 30 events) ══ -->
+{% if timeline.events %}
+<div class="section">
+  <div class="section-title">⑧ Unified Event Timeline (top 30)</div>
+  {% for e in timeline.events[:30] %}
+  <div class="tl-item">
+    <div class="tl-dot {{ e.severity }}"></div>
+    <div class="tl-ts">{{ e.timestamp[:19] if e.timestamp else "—" }}</div>
+    <div class="tl-desc">
+      <span class="tl-src">{{ e.source }}</span>
+      <strong>{{ e.metric_name }}</strong> — {{ e.description[:120] }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ FOOTER ══ -->
+<div class="footer">
+  Generated by AI-Driven PT Log Mining Pipeline &nbsp;·&nbsp; {{ company_name }} &nbsp;·&nbsp; {{ generated_at }}
+</div>
+
+</body>
+</html>

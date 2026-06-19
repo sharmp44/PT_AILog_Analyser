@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Pipeline (sample data)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "args": [
+        "run",
+        "logs_drop/iis_u_ex240619.log",
+        "logs_drop/perfmon_server01.csv",
+        "logs_drop/lr_results.csv",
+        "logs_drop/vuser_0.log"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "OPENAI_API_KEY": "YOUR_KEY_HERE"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Watch Drop Folder",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "args": ["watch", "--folder", "logs_drop"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "OPENAI_API_KEY": "YOUR_KEY_HERE"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Generate Sample Data",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/sample_data/generate_samples.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}

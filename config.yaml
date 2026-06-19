@@ -1,0 +1,36 @@
+# PT AI Log Mining Pipeline – Configuration
+# Copy to config.local.yaml and override values; local is gitignored.
+
+pipeline:
+  drop_folder: "./logs_drop"          # File watcher monitors this folder
+  output_folder: "./output"           # Reports written here
+  db_path: "/tmp/pt_pipeline.duckdb"  # DuckDB data store (use /tmp to avoid network-FS locking)
+
+openai:
+  api_key: ""                         # Set via env var OPENAI_API_KEY (preferred)
+  model: "gpt-4o"
+  max_tokens: 4096
+
+sla:
+  # Thresholds used by Threshold Agent
+  p95_latency_ms: 2000               # p95 response time SLA
+  error_rate_pct: 1.0                # max allowed error rate %
+  tps_drop_pct: 20.0                 # alert if TPS drops >20% vs baseline
+  cpu_pct: 85.0                      # CPU % alert threshold
+  memory_pct: 90.0                   # Memory % alert threshold
+  disk_queue_length: 2.0             # Disk queue length threshold
+
+anomaly:
+  z_score_threshold: 3.0
+  isolation_forest_contamination: 0.05
+  window_size: 60                    # seconds for rolling window aggregations
+
+test_phases:
+  # Default phase boundaries (overridden by LoadRunner metadata if available)
+  ramp_up_minutes: 5
+  steady_state_minutes: 20
+  ramp_down_minutes: 5
+
+report:
+  company_name: "Performance Engineering"
+  logo_path: ""                      # Optional path to logo PNG

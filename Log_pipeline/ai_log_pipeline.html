@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f1a; color: #e0e0f0; padding: 24px; min-width: 900px; }
+
+  h1 { text-align: center; font-size: 18px; color: #7eb3ff; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .subtitle { text-align: center; font-size: 11px; color: #8888aa; margin-bottom: 28px; }
+
+  .pipeline { display: flex; flex-direction: column; gap: 0; align-items: stretch; max-width: 960px; margin: 0 auto; }
+
+  .phase-row { display: flex; align-items: stretch; border-radius: 8px; overflow: hidden; margin-bottom: 0; }
+
+  .phase-label {
+    writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);
+    font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: #fff; padding: 12px 7px; min-width: 30px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phase-content { flex: 1; padding: 14px 16px; }
+
+  .p-ingest .phase-label  { background: #1e4db7; } .p-ingest  .phase-content { background: #111d35; }
+  .p-parse  .phase-label  { background: #1a7a3a; } .p-parse   .phase-content { background: #0f2a1a; }
+  .p-ai     .phase-label  { background: #6a22aa; } .p-ai      .phase-content { background: #1a0d2e; }
+  .p-corr   .phase-label  { background: #b05a10; } .p-corr    .phase-content { background: #2a1a08; }
+  .p-report .phase-label  { background: #0e7490; } .p-report  .phase-content { background: #071e27; }
+
+  .phase-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+  .p-ingest  .phase-title { color: #7eb3ff; }
+  .p-parse   .phase-title { color: #7effa0; }
+  .p-ai      .phase-title { color: #c07eff; }
+  .p-corr    .phase-title { color: #ffaa55; }
+  .p-report  .phase-title { color: #55ccee; }
+
+  .cards { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card { flex: 1; min-width: 150px; border-radius: 6px; padding: 9px 11px; border: 1px solid rgba(255,255,255,0.07); }
+  .card-title { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+  .card-body  { font-size: 10px; color: #aab8cc; line-height: 1.5; }
+  .card-tag   { display: inline-block; font-size: 9px; padding: 2px 7px; border-radius: 3px; margin-top: 5px; font-weight: 600; }
+
+  .c-blg     { background: #0c1c38; } .c-blg .card-title     { color: #7eb3ff; }
+  .c-iis     { background: #0c2818; } .c-iis .card-title     { color: #7effa0; }
+  .c-lr      { background: #1a0c2e; } .c-lr .card-title      { color: #c07eff; }
+  .c-watch   { background: #261808; } .c-watch .card-title   { color: #ffaa55; }
+  .c-norm    { background: #0c2818; } .c-norm .card-title    { color: #7effa0; }
+  .c-agent   { background: #130d22; } .c-agent .card-title   { color: #ffdd88; }
+  .c-out     { background: #071e27; } .c-out .card-title     { color: #55ccee; }
+
+  .arrow-down { text-align: center; font-size: 26px; color: #334455; padding: 3px 0; line-height: 1; }
+
+  /* Agent flow */
+  .agent-flow { display: flex; align-items: center; gap: 0; }
+  .agent-box { flex: 1; background: #1e1030; border: 1px solid #6a22aa44; border-radius: 6px; padding: 9px 8px; text-align: center; }
+  .agent-box .aname { font-size: 10px; font-weight: 700; color: #c07eff; margin-bottom: 3px; }
+  .agent-box .adesc { font-size: 9px; color: #9988bb; line-height: 1.4; }
+  .agent-box .atag  { font-size: 8px; background: #3a1060; color: #cc99ff; padding: 1px 5px; border-radius: 3px; margin-top: 4px; display: inline-block; }
+  .agent-arr { font-size: 20px; color: #6a22aa; padding: 0 5px; flex-shrink: 0; }
+
+  /* Correlation grid */
+  .corr-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .corr-card { background: #1e1208; border: 1px solid #aa552233; border-radius: 6px; padding: 9px 11px; }
+  .corr-card .cname { font-size: 10px; font-weight: 700; color: #ffaa55; margin-bottom: 4px; }
+  .corr-card .cdesc { font-size: 9px; color: #bbaa88; line-height: 1.45; }
+
+  /* Report grid */
+  .report-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .rcard { border-radius: 6px; padding: 9px 11px; border: 1px solid rgba(255,255,255,0.06); }
+  .rcard .rname { font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+  .rcard .rdesc { font-size: 9px; color: #aabbcc; line-height: 1.45; }
+  .r1 { background: #081e2e; } .r1 .rname { color: #55ccee; }
+  .r2 { background: #081e10; } .r2 .rname { color: #7effa0; }
+  .r3 { background: #1e1a08; } .r3 .rname { color: #ffee55; }
+  .r4 { background: #220d18; } .r4 .rname { color: #ff88aa; }
+
+  .metrics { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .metric { background: #0a0a1a; border: 1px solid #223; border-radius: 20px; padding: 3px 11px; font-size: 10px; color: #7eb3ff; }
+  .metric b { color: #ffdd88; }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #8899aa; }
+  .leg-dot  { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<h1>AI-Driven Log Mining &amp; Anomaly Detection Pipeline</h1>
+<div class="subtitle">Automated Root Cause Analysis &nbsp;·&nbsp; .BLG &nbsp;·&nbsp; IIS Logs &nbsp;·&nbsp; LoadRunner Logs &nbsp;·&nbsp; Target: 40% RCA Time Reduction</div>
+
+<div class="pipeline">
+
+  <!-- PHASE 1: INGEST -->
+  <div class="phase-row p-ingest">
+    <div class="phase-label">Ingest</div>
+    <div class="phase-content p-ingest">
+      <div class="phase-title">① LOG SOURCE SELECTION &amp; INGESTION</div>
+      <div class="cards">
+        <div class="card c-blg">
+          <div class="card-title">📊 .BLG Files</div>
+          <div class="card-body">Windows PerfMon binary logs. CPU, Memory, Disk I/O, Network, Process counters. Converted via relog / perfmon2csv.</div>
+          <span class="card-tag" style="background:#0d2255;color:#7eb3ff;">relog / perfmon2csv</span>
+        </div>
+        <div class="card c-iis">
+          <div class="card-title">🌐 IIS Logs</div>
+          <div class="card-body">W3C extended format. Request latency, HTTP status codes, URI stems, client IPs, bytes sent, time-taken field.</div>
+          <span class="card-tag" style="background:#0d2a10;color:#7effa0;">W3C Log Parser</span>
+        </div>
+        <div class="card c-lr">
+          <div class="card-title">⚡ LoadRunner Logs</div>
+          <div class="card-body">Transaction response times, vuser error logs, SLA breach events, think time deviations, ramp-up/steady/peak phases.</div>
+          <span class="card-tag" style="background:#1a0d30;color:#c07eff;">LR Result Parser</span>
+        </div>
+        <div class="card c-watch">
+          <div class="card-title">👁 File Watcher Agent</div>
+          <div class="card-body">Monitors drop folder continuously. Auto-triggers pipeline on new file arrival. Detects file type and routes to correct parser.</div>
+          <span class="card-tag" style="background:#2a1500;color:#ffaa55;">Python watchdog</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- PHASE 2: PARSE -->
+  <div class="phase-row p-parse">
+    <div class="phase-label">Parse</div>
+    <div class="phase-content p-parse">
+      <div class="phase-title">② PARSE, NORMALISE &amp; ENRICH</div>
+      <div class="cards">
+        <div class="card c-norm">
+          <div class="card-title" style="color:#7effa0;">🔄 Log Normaliser</div>
+          <div class="card-body">Converts all formats to unified schema: {timestamp, source, metric_name, value, severity}. Aligns timezones. Handles malformed rows.</div>
+          <span class="card-tag" style="background:#0d3a1a;color:#7effa0;">pandas / polars</span>
+        </div>
+        <div class="card c-norm">
+          <div class="card-title" style="color:#7effa0;">🏷 Context Tagger</div>
+          <div class="card-body">Enriches with test metadata: phase (ramp/steady/peak), run ID, environment, SLA thresholds, VUser count at each timestamp.</div>
+          <span class="card-tag" style="background:#0d3a1a;color:#7effa0;">metadata registry</span>
+        </div>
+        <div class="card c-norm">
+          <div class="card-title" style="color:#7effa0;">🗄 Time-Series Store</div>
+          <div class="card-body">Stores normalised events for fast window queries. Supports sliding window aggregations needed by anomaly detection models.</div>
+          <span class="card-tag" style="background:#0d3a1a;color:#7effa0;">InfluxDB / DuckDB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- PHASE 3: AI AGENTS -->
+  <div class="phase-row p-ai">
+    <div class="phase-label">AI Agents</div>
+    <div class="phase-content p-ai">
+      <div class="phase-title">③ AI AGENT LAYER — Specialised Detectors (run in parallel)</div>
+      <div class="agent-flow">
+        <div class="agent-box">
+          <div class="aname">🧠 Anomaly Agent</div>
+          <div class="adesc">Z-score, IQR &amp; Isolation Forest on all metrics. Flags outliers vs baseline period.</div>
+          <span class="atag">scikit-learn</span>
+        </div>
+        <div class="agent-arr">→</div>
+        <div class="agent-box">
+          <div class="aname">📈 Trend Agent</div>
+          <div class="adesc">Detects monotonic degradation — memory leaks, connection pool exhaustion, GC creep over test duration.</div>
+          <span class="atag">Prophet / ARIMA</span>
+        </div>
+        <div class="agent-arr">→</div>
+        <div class="agent-box">
+          <div class="aname">⚠️ Threshold Agent</div>
+          <div class="adesc">SLA breach detection: p95 latency, error rate &gt;1%, TPS drop. Maps each breach to business KPI.</div>
+          <span class="atag">rule engine</span>
+        </div>
+        <div class="agent-arr">→</div>
+        <div class="agent-box">
+          <div class="aname">🔍 Pattern Agent</div>
+          <div class="adesc">Regex + LLM on log text. Finds error bursts, stack traces, OOM events, 5xx spikes, timeout clusters.</div>
+          <span class="atag">Claude API</span>
+        </div>
+        <div class="agent-arr">→</div>
+        <div class="agent-box">
+          <div class="aname">🔗 Causal Agent</div>
+          <div class="adesc">Correlates all agent findings. Builds cause-effect chains. Ranks hypotheses by evidence strength.</div>
+          <span class="atag">LLM reasoning</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- PHASE 4: CORRELATION -->
+  <div class="phase-row p-corr">
+    <div class="phase-label">Correlate</div>
+    <div class="phase-content p-corr">
+      <div class="phase-title">④ CROSS-SOURCE CORRELATION &amp; ROOT CAUSE RANKING</div>
+      <div class="corr-grid">
+        <div class="corr-card">
+          <div class="cname">⏱ Timeline Alignment</div>
+          <div class="cdesc">Merges anomaly events from .BLG + IIS + LoadRunner onto a single unified timeline. Identifies the leading indicator — which metric degraded first before user-visible impact.</div>
+        </div>
+        <div class="corr-card">
+          <div class="cname">🎯 RCA Engine</div>
+          <div class="cdesc">LLM-powered reasoning reads all agent outputs together and generates ranked root cause hypotheses with evidence citations from each log source. Natural language explanation included.</div>
+        </div>
+        <div class="corr-card">
+          <div class="cname">📊 Confidence Scoring</div>
+          <div class="cdesc">Each finding scored High / Medium / Low based on how many independent signals corroborate it. A finding backed by .BLG + IIS + LR simultaneously = High confidence RCA.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- PHASE 5: REPORT -->
+  <div class="phase-row p-report">
+    <div class="phase-label">Report</div>
+    <div class="phase-content p-report">
+      <div class="phase-title">⑤ AUTOMATED PERFORMANCE FINDINGS REPORT</div>
+      <div class="report-grid">
+        <div class="rcard r1">
+          <div class="rname">📋 Executive Summary</div>
+          <div class="rdesc">Pass / Fail verdict. SLA breach count. Top 3 findings. Risk rating. Recommended immediate actions.</div>
+        </div>
+        <div class="rcard r2">
+          <div class="rname">📉 Metric Deep Dive</div>
+          <div class="rdesc">Time-series charts per source. Percentile tables (p50/p90/p95/p99). Threshold breach timelines.</div>
+        </div>
+        <div class="rcard r3">
+          <div class="rname">🔎 RCA Findings</div>
+          <div class="rdesc">Ranked root causes with evidence. Confidence scores. Cross-log correlation proof. LLM narrative explanation.</div>
+        </div>
+        <div class="rcard r4">
+          <div class="rname">✅ Recommendations</div>
+          <div class="rdesc">Tuning actions per finding. Re-test acceptance criteria. Open risks flagged for next sprint.</div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric">Output: <b>PDF + HTML Report</b></div>
+        <div class="metric">Generated by: <b>Claude API</b></div>
+        <div class="metric">RCA time reduction: <b>~40%</b></div>
+        <div class="metric">Trigger: <b>automatic on log drop</b></div>
+        <div class="metric">Delivery: <b>email + dashboard</b></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#1e4db7;"></div>Ingest Layer</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1a7a3a;"></div>Parse &amp; Normalise</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#6a22aa;"></div>AI Agent Layer</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#b05a10;"></div>Correlation &amp; RCA</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0e7490;"></div>Report Generation</div>
+</div>
+
+</body>
+</html>
