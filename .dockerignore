@@ -1,0 +1,32 @@
+# Virtual environments
+test-env/
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets
+.env
+
+# Git
+.git/
+.gitignore
+
+# Logs and temp files
+logs_drop/
+*.log
+output/
+*.duckdb
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
