@@ -36,6 +36,9 @@ _NAME_HINTS: list[tuple[str, str]] = [
     ("vuser",    "lr"),
     ("output",   "lr"),
     ("results",  "lr"),
+    ("sql",      "sql"),   # SQL Server PerfMon CSV
+    ("sqlserver","sql"),
+    ("mssql",    "sql"),
     ("perfmon",  "blg"),
     ("iis",      "iis"),
     ("access",   "iis"),
@@ -56,14 +59,18 @@ def detect_type(path: Path) -> str | None:
         if hint in name_lower:
             return kind
 
-    # Sniff first line for IIS W3C format
-    if suffix in (".log", ".txt"):
+    # Sniff first lines for IIS W3C / SQL PerfMon / LR format
+    if suffix in (".log", ".txt", ".csv"):
         try:
             with open(path, errors="replace") as fh:
                 first = fh.readline()
-            if "#software: microsoft internet information" in first.lower():
+                second = fh.readline()
+            content = (first + second).lower()
+            if "#software: microsoft internet information" in content:
                 return "iis"
-            if "notify:" in first.lower() or "action.c" in first.lower():
+            if "sqlserver:" in content:
+                return "sql"
+            if "notify:" in content or "action.c" in content:
                 return "lr"
         except Exception:
             pass

@@ -46,16 +46,24 @@ class ThresholdFinding:
 # operator: "gt" | "lt"
 
 _RULES: list[tuple[str, str, str, str, str, str]] = [
-    # metric_pattern            agg     cfg_key            op   label                         kpi
-    ("response_time_ms",       "p95",  "p95_latency_ms",  "gt","P95 Latency SLA Breach",    "User Experience / SLA"),
-    ("tx_response_sec",        "p95",  "p95_latency_ms",  "gt","Transaction P95 Breach",    "User Experience / SLA"),
-    ("cpu_pct",                "max",  "cpu_pct",         "gt","CPU Saturation",             "System Capacity"),
-    ("processor_cpu_pct",      "max",  "cpu_pct",         "gt","CPU Saturation",             "System Capacity"),
-    ("mem_committed_pct",      "max",  "memory_pct",      "gt","Memory Pressure",            "System Capacity"),
-    ("disk_queue_len",         "max",  "disk_queue_length","gt","Disk Queue Saturation",     "I/O Throughput"),
-    ("error_event",            "sum",  None,              "gt","Error Event Detected",       "Reliability"),
-    ("http_status",            "none", None,              "gt","HTTP 5xx Errors",            "Availability"),
-    ("tps",                    "drop", "tps_drop_pct",    "lt","TPS Drop",                  "Throughput"),
+    # metric_pattern                    agg     cfg_key                        op   label                              kpi
+    # ── Web / App ──────────────────────────────────────────────────────────────
+    ("response_time_ms",               "p95",  "p95_latency_ms",              "gt","P95 Latency SLA Breach",         "User Experience / SLA"),
+    ("tx_response_sec",                "p95",  "p95_latency_ms",              "gt","Transaction P95 Breach",         "User Experience / SLA"),
+    ("cpu_pct",                        "max",  "cpu_pct",                     "gt","CPU Saturation",                 "System Capacity"),
+    ("processor_cpu_pct",              "max",  "cpu_pct",                     "gt","CPU Saturation",                 "System Capacity"),
+    ("mem_committed_pct",              "max",  "memory_pct",                  "gt","Memory Pressure",                "System Capacity"),
+    ("disk_queue_len",                 "max",  "disk_queue_length",           "gt","Disk Queue Saturation",          "I/O Throughput"),
+    ("error_event",                    "sum",  None,                          "gt","Error Event Detected",            "Reliability"),
+    ("http_status",                    "none", None,                          "gt","HTTP 5xx Errors",                 "Availability"),
+    ("tps",                            "drop", "tps_drop_pct",                "lt","TPS Drop",                       "Throughput"),
+    # ── SQL Server ─────────────────────────────────────────────────────────────
+    ("sql_buffer_cache_hit_pct",       "min",  "sql_min_buffer_cache_hit_pct","lt","SQL Buffer Cache Hit Low",       "Database Performance"),
+    ("sql_page_life_expectancy_s",     "min",  "sql_min_page_life_expectancy_s","lt","SQL Page Life Expectancy Low", "Database Memory"),
+    ("sql_deadlocks_sec",              "max",  "sql_max_deadlocks_sec",       "gt","SQL Deadlocks Detected",         "Database Concurrency"),
+    ("sql_lock_waits_sec",             "max",  "sql_max_lock_waits_sec",      "gt","SQL Lock Contention",            "Database Concurrency"),
+    ("sql_processes_blocked",          "max",  "sql_max_processes_blocked",   "gt","SQL Blocked Processes",          "Database Concurrency"),
+    ("sql_recompilations_sec",         "max",  "sql_max_recompilations_sec",  "gt","SQL Excessive Re-compilations", "Database Performance"),
 ]
 
 
@@ -66,6 +74,8 @@ def _agg(series: pd.Series, agg: str) -> float:
         return float(np.percentile(series.values, 90))
     if agg == "max":
         return float(series.max())
+    if agg == "min":
+        return float(series.min())
     if agg == "sum":
         return float(series.sum())
     if agg == "mean":
@@ -76,7 +86,9 @@ def _agg(series: pd.Series, agg: str) -> float:
 def run(df: pd.DataFrame, cfg: dict | None = None) -> list[dict]:
     """Evaluate all threshold rules against the dataset."""
     cfg = cfg or {}
-    sla = cfg.get("sla", {})
+    sla = {**cfg.get("sla", {}), **{
+        f"sql_{k}": v for k, v in cfg.get("sql_sla", {}).items()
+    }}
 
     findings: list[ThresholdFinding] = []
 
@@ -143,11 +155,15 @@ def run(df: pd.DataFrame, cfg: dict | None = None) -> list[dict]:
         else:
             breaches = matches[matches["value"] < threshold]
 
-        if breaches.empty and actual <= threshold:
+        overall_breach = (actual > threshold) if op == "gt" else (actual < threshold)
+        if breaches.empty and not overall_breach:
             continue
 
-        if not breaches.empty or actual > threshold:
-            severity = "critical" if actual > threshold * 1.2 else "warn"
+        if overall_breach or not breaches.empty:
+            severity = "critical" if (
+                (op == "gt" and actual > threshold * 1.2) or
+                (op == "lt" and actual < threshold * 0.8)
+            ) else "warn"
             findings.append(ThresholdFinding(
                 metric_name=pattern, source=str(matches["source"].iloc[0]),
                 rule_name=label, threshold=threshold,

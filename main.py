@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from Utils.config import load_config
 from Utils.logger import get_logger
 
-from ingest import blg_parser, iis_parser, lr_parser
+from ingest import blg_parser, iis_parser, lr_parser, sql_parser
 from ingest.file_watcher import detect_type, watch as watch_folder
 
 from parse.normaliser import normalise
@@ -52,6 +52,7 @@ _PARSERS = {
     "iis":        iis_parser.parse,
     "loadrunner": lr_parser.parse,
     "lr":         lr_parser.parse,
+    "sql":        sql_parser.parse,
 }
 
 

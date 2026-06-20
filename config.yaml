@@ -34,3 +34,12 @@ test_phases:
 report:
   company_name: "Performance Engineering"
   logo_path: ""                      # Optional path to logo PNG
+
+sql_sla:
+  # SQL Server thresholds used by Threshold Agent
+  min_buffer_cache_hit_pct: 95.0     # Buffer cache hit ratio must stay above this
+  min_page_life_expectancy_s: 300    # PLE must stay above 300s (5 minutes)
+  max_deadlocks_sec: 0.1             # Deadlocks per second alert
+  max_lock_waits_sec: 5.0            # Lock waits per second alert
+  max_processes_blocked: 5           # Blocked processes alert
+  max_recompilations_sec: 10.0       # SQL re-compilations per second alert

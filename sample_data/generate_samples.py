@@ -186,6 +186,94 @@ def gen_lr_vuser_log(path: Path, n_iter: int = 60) -> None:
     print(f"[LR]   {path}  ({len(lines)} lines)")
 
 
+# ── SQL Server PerfMon CSV ────────────────────────────────────────────────────
+
+def gen_sql_csv(path: Path, n: int = 300) -> None:
+    """
+    Simulate a PerfMon CSV export with SQL Server counters.
+    Injects anomalies at minutes 18-22: deadlock spike, PLE drop, blocked processes.
+    """
+    headers = [
+        r"(PDH-CSV 4.0) (UTC)(0)",
+        r"\\SQLSERVER01\SQLServer:Buffer Manager\Buffer cache hit ratio",
+        r"\\SQLSERVER01\SQLServer:Buffer Manager\Page life expectancy",
+        r"\\SQLSERVER01\SQLServer:SQL Statistics\Batch Requests/sec",
+        r"\\SQLSERVER01\SQLServer:SQL Statistics\SQL Compilations/sec",
+        r"\\SQLSERVER01\SQLServer:SQL Statistics\SQL Re-Compilations/sec",
+        r"\\SQLSERVER01\SQLServer:General Statistics\User Connections",
+        r"\\SQLSERVER01\SQLServer:General Statistics\Processes blocked",
+        r"\\SQLSERVER01\SQLServer:Locks(_Total)\Lock Waits/sec",
+        r"\\SQLSERVER01\SQLServer:Locks(_Total)\Deadlocks/sec",
+        r"\\SQLSERVER01\SQLServer:Memory Manager\Total Server Memory (KB)",
+        r"\\SQLSERVER01\SQLServer:Memory Manager\Target Server Memory (KB)",
+        r"\\SQLSERVER01\SQLServer:Databases(_Total)\Transactions/sec",
+    ]
+
+    rows = [headers]
+    ts = START
+    ple = 900.0        # Page Life Expectancy starts healthy
+
+    for i in range(n):
+        ts += timedelta(seconds=10)
+        elapsed_min = (ts - START).total_seconds() / 60
+
+        # Anomaly window 18-22: PLE drops, deadlocks spike, blocked processes rise
+        if 18 < elapsed_min < 22:
+            buffer_hit  = random.uniform(82, 91)     # drops below 95% SLA
+            ple         = max(50, ple - random.uniform(30, 80))
+            batch_req   = random.uniform(800, 1200)
+            compilations = random.uniform(80, 150)
+            recompilations = random.uniform(15, 35)   # exceeds SLA
+            connections = random.randint(180, 220)
+            blocked     = random.randint(8, 20)       # exceeds SLA
+            lock_waits  = random.uniform(12, 25)      # exceeds SLA
+            deadlocks   = random.uniform(0.3, 1.2)    # exceeds SLA
+        elif elapsed_min > 25:
+            buffer_hit  = random.uniform(93, 97)
+            ple         = min(900, ple + random.uniform(5, 15))
+            batch_req   = random.uniform(400, 700)
+            compilations = random.uniform(30, 60)
+            recompilations = random.uniform(2, 8)
+            connections = random.randint(120, 160)
+            blocked     = random.randint(0, 2)
+            lock_waits  = random.uniform(0.5, 2.0)
+            deadlocks   = 0.0
+        else:
+            buffer_hit  = random.uniform(96, 99.5)   # healthy
+            ple         = min(900, ple + random.uniform(1, 5))
+            batch_req   = random.uniform(300, 600)
+            compilations = random.uniform(20, 50)
+            recompilations = random.uniform(0.5, 4)
+            connections = random.randint(80, 130)
+            blocked     = random.randint(0, 1)
+            lock_waits  = random.uniform(0.1, 1.0)
+            deadlocks   = 0.0
+
+        total_mem   = 8_192_000 + random.uniform(-10000, 10000)
+        target_mem  = 8_192_000
+        transactions = batch_req * random.uniform(1.5, 2.5)
+
+        rows.append([
+            ts.strftime("%m/%d/%Y %H:%M:%S.000"),
+            f"{buffer_hit:.4f}",
+            f"{ple:.0f}",
+            f"{batch_req:.2f}",
+            f"{compilations:.2f}",
+            f"{recompilations:.2f}",
+            f"{connections}",
+            f"{blocked}",
+            f"{lock_waits:.4f}",
+            f"{deadlocks:.4f}",
+            f"{total_mem:.0f}",
+            f"{target_mem:.0f}",
+            f"{transactions:.2f}",
+        ])
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+    print(f"[SQL]  {path}  ({n} rows)")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -196,6 +284,7 @@ if __name__ == "__main__":
     gen_blg_csv(drop / "perfmon_server01.csv")
     gen_lr_results(drop / "lr_results.csv")
     gen_lr_vuser_log(drop / "vuser_0.log")
+    gen_sql_csv(drop / "sql_server01.csv")
 
     print("\n✓ Sample files written to:", drop)
     print("  Run the pipeline with:")
