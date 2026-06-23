@@ -117,19 +117,26 @@ def _llm_pass(suspicious_lines: list[str], cfg: dict) -> list[PatternFinding]:
     if not suspicious_lines:
         return []
 
-    api_key = cfg.get("openai", {}).get("api_key", "")
+    llm_cfg  = cfg.get("openai", {})
+    api_key  = llm_cfg.get("api_key", "")
+    base_url = llm_cfg.get("base_url", "")   # e.g. https://api.groq.com/openai/v1
+
     if not api_key:
-        log.warning("[pattern_agent] No OpenAI API key – skipping LLM pass")
+        log.warning("[pattern_agent] No API key – skipping LLM pass")
         return []
 
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(
+            api_key=api_key,
+            **({ "base_url": base_url } if base_url else {}),
+        )
     except ImportError:
         log.warning("[pattern_agent] openai package not installed – skipping LLM pass")
         return []
 
-    log.info(f"[pattern_agent] Sending {len(suspicious_lines)} lines to OpenAI for semantic analysis …")
+    model = llm_cfg.get("model", "gpt-4o")
+    log.info(f"[pattern_agent] Sending {len(suspicious_lines)} lines to {model} for semantic analysis …")
 
     prompt = f"""You are a performance engineering expert analysing log lines from a load test.
 Below are suspicious log lines extracted from .BLG, IIS, and LoadRunner logs.
@@ -149,7 +156,7 @@ Log lines:
 
     try:
         response = client.chat.completions.create(
-            model=cfg.get("openai", {}).get("model", "gpt-4o"),
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=cfg.get("openai", {}).get("max_tokens", 2048),
             temperature=0.1,

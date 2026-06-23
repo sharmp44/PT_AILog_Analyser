@@ -52,15 +52,20 @@ def run(
 ) -> dict:
     """Run causal reasoning over all agent findings."""
     cfg = cfg or {}
-    api_key = cfg.get("openai", {}).get("api_key", "")
+    llm_cfg  = cfg.get("openai", {})
+    api_key  = llm_cfg.get("api_key", "")
+    base_url = llm_cfg.get("base_url", "")   # e.g. https://api.groq.com/openai/v1
 
     if not api_key:
-        log.warning("[causal_agent] No OpenAI API key – returning fallback analysis")
+        log.warning("[causal_agent] No API key – returning fallback analysis")
         return _FALLBACK_ANALYSIS.to_dict()
 
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(
+            api_key=api_key,
+            **({ "base_url": base_url } if base_url else {}),
+        )
     except ImportError:
         log.warning("[causal_agent] openai not installed – returning fallback")
         return _FALLBACK_ANALYSIS.to_dict()

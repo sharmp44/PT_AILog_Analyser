@@ -708,7 +708,9 @@ if uploaded_files:
             },
             "openai": {
                 **base_cfg.get("openai", {}),
-                "api_key": os.environ.get("OPENAI_API_KEY", ""),
+                "api_key":  os.environ.get("OPENAI_API_KEY", ""),
+                "base_url": os.environ.get("OPENAI_BASE_URL", base_cfg.get("openai", {}).get("base_url", "")),
+                "model":    os.environ.get("OPENAI_MODEL",    base_cfg.get("openai", {}).get("model", "gpt-4o")),
             },
             "sla": {
                 "p95_latency_ms":  p95_ms,
