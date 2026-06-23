@@ -55,23 +55,40 @@ _RX_VUSER  = re.compile(r"vuser[_\-]?(\d+)", re.IGNORECASE)
 
 # ── Result CSV column aliases ───────────────────────────────────────────────
 _COL_ALIASES: dict[str, str] = {
-    "transaction name":  "transaction_name",
-    "transactionname":   "transaction_name",
-    "name":              "transaction_name",
-    "average (sec)":     "avg_response_sec",
-    "average":           "avg_response_sec",
-    "minimum (sec)":     "min_response_sec",
-    "maximum (sec)":     "max_response_sec",
-    "90th percentile":   "p90_response_sec",
-    "95th percentile":   "p95_response_sec",
-    "std. deviation":    "std_dev_sec",
-    "pass":              "pass_count",
-    "fail":              "fail_count",
-    "stop":              "stop_count",
-    "start time":        "start_time",
-    "end time":          "end_time",
+    # Standard LR Analysis export
+    "transaction name":      "transaction_name",
+    "transactionname":       "transaction_name",
+    "transaction":           "transaction_name",
+    "name":                  "transaction_name",
+    "script":                "script_name",
+    "average (sec)":         "avg_response_sec",
+    "average":               "avg_response_sec",
+    "avg":                   "avg_response_sec",
+    "minimum (sec)":         "min_response_sec",
+    "minimum":               "min_response_sec",
+    "min":                   "min_response_sec",
+    "maximum (sec)":         "max_response_sec",
+    "maximum":               "max_response_sec",
+    "max":                   "max_response_sec",
+    "90th percentile":       "p90_response_sec",
+    "90th":                  "p90_response_sec",
+    "95th percentile":       "p95_response_sec",
+    "95th":                  "p95_response_sec",
+    "99th percentile":       "p99_response_sec",
+    "99th":                  "p99_response_sec",
+    "std. deviation":        "std_dev_sec",
+    "std":                   "std_dev_sec",
+    "pass":                  "pass_count",
+    "passed":                "pass_count",
+    "fail":                  "fail_count",
+    "failed":                "fail_count",
+    "failed ratio":          "fail_rate",
+    "stop":                  "stop_count",
+    "start time":            "start_time",
+    "end time":              "end_time",
     "throughput (hits/sec)": "tps",
-    "throughput":        "tps",
+    "throughput":            "tps",
+    "achieved tps":          "tps",
 }
 
 
@@ -87,8 +104,9 @@ def _is_raw_tx_csv(path: Path) -> bool:
     script | transaction | ... | start time | end time | response time(secs)
     """
     try:
-        header = pd.read_csv(path, nrows=0).columns.str.lower().tolist()
-        return "transaction" in header and "response time(secs)" in " ".join(header)
+        header_row = _find_header_row(path)
+        header = pd.read_csv(path, skiprows=header_row, nrows=0).columns.str.lower().tolist()
+        return "transaction" in header and any("response time" in c for c in header)
     except Exception:
         return False
 
@@ -154,8 +172,28 @@ def _parse_raw_tx_csv(path: Path, cfg: dict) -> pd.DataFrame:
 
 # ── CSV result file parser ──────────────────────────────────────────────────
 
+_KNOWN_HEADER_WORDS = {"script", "transaction", "avg", "average", "90th", "95th",
+                       "passed", "failed", "tps", "min", "max", "std"}
+
+
+def _find_header_row(path: Path) -> int:
+    """Scan up to 10 rows to find the row that contains recognised column names."""
+    try:
+        sample = pd.read_csv(path, header=None, nrows=10)
+        for i, row in sample.iterrows():
+            row_lower = {str(v).strip().lower() for v in row.dropna()}
+            if len(row_lower & _KNOWN_HEADER_WORDS) >= 2:
+                return int(i)
+    except Exception:
+        pass
+    return 0   # fallback: assume row 0
+
+
 def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
-    raw = pd.read_csv(path, low_memory=False)
+    header_row = _find_header_row(path)
+    if header_row > 0:
+        log.info(f"[lr_parser] Header detected at row {header_row} (skipping {header_row} rows)")
+    raw = pd.read_csv(path, skiprows=header_row, low_memory=False)
     raw.columns = [_normalise_col(c) for c in raw.columns]
 
     rows = []
@@ -306,11 +344,23 @@ def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
     cfg  = cfg or {}
     log.info(f"Parsing LoadRunner file: {path}")
 
+    # Log column names to help debug unknown formats
+    if path.suffix.lower() in (".csv", ".txt", ".tsv"):
+        try:
+            _cols = pd.read_csv(path, nrows=0).columns.tolist()
+            log.info(f"[lr_parser] CSV columns detected: {_cols}")
+        except Exception:
+            pass
+
     suffix = path.suffix.lower()
     if suffix in (".csv", ".txt", ".tsv") and _is_raw_tx_csv(path):
         df = _parse_raw_tx_csv(path, cfg)
     elif suffix in (".csv", ".txt", ".tsv"):
         df = _parse_results_csv(path, cfg)
+        # If aggregated parser found nothing, try raw TX format as fallback
+        if df.empty:
+            log.warning(f"[lr_parser] Aggregated parser returned no rows — trying raw TX format")
+            df = _parse_raw_tx_csv(path, cfg)
     elif suffix == ".log":
         df = _parse_vuser_log(path, cfg)
     else:
