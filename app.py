@@ -156,7 +156,8 @@ def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
         return None
 
 
-def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path) -> dict | None:
+def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
+                    time_window: dict | None = None) -> dict | None:
     """Run the full pipeline with Streamlit progress indicators."""
 
     # ── Phase 1: Ingest ───────────────────────────────────────────────────────
@@ -194,6 +195,29 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path) -> dict
     db_path = cfg.get("pipeline", {}).get("db_path", "/tmp/pt_pipeline_ui.duckdb")
     with Store(db_path) as store:
         store.insert(combined)
+
+    # ── Time Window Filter ────────────────────────────────────────────────────
+    if time_window and time_window.get("enabled"):
+        tw_start = pd.Timestamp(time_window["start"], tz="UTC")
+        tw_end   = pd.Timestamp(time_window["end"],   tz="UTC")
+        before   = len(combined)
+        combined = combined[
+            (combined["timestamp"] >= tw_start) &
+            (combined["timestamp"] <= tw_end)
+        ].copy()
+        after = len(combined)
+        if combined.empty:
+            st.error(
+                f"❌ Time window filter removed all {before} events. "
+                f"No data between {tw_start.strftime('%H:%M')} and {tw_end.strftime('%H:%M')}. "
+                "Try widening the window or check your log timestamps."
+            )
+            return None
+        st.info(
+            f"⏱️ Time window applied: **{tw_start.strftime('%Y-%m-%d %H:%M')}** → "
+            f"**{tw_end.strftime('%H:%M')}**  |  "
+            f"{after:,} events kept out of {before:,} total"
+        )
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Events", f"{len(combined):,}")
@@ -457,6 +481,20 @@ with st.sidebar:
     max_recomp = st.number_input("Max Re-compilations/sec",        value=10.0, step=1.0, format="%.1f")
 
     st.markdown("---")
+    st.markdown("#### ⏱️ Test Time Window")
+    st.caption("Filter logs to your test period only. Leave disabled to analyse all data.")
+    use_time_window = st.toggle("Enable Time Window Filter", value=False)
+
+    import datetime as _dt
+    tw_date       = st.date_input("Test Date", value=_dt.date.today())
+    tw_start_time = st.time_input("Start Time", value=_dt.time(9, 0, 0))
+    tw_end_time   = st.time_input("End Time",   value=_dt.time(18, 0, 0))
+
+    if use_time_window and tw_start_time >= tw_end_time:
+        st.warning("⚠️ End time must be after start time.")
+        use_time_window = False
+
+    st.markdown("---")
     st.markdown("""
     <div style="font-size:0.75rem;color:#8b949e;text-align:center">
         Supported log types:<br>
@@ -574,8 +612,20 @@ if uploaded_files:
         st.markdown("---")
         st.markdown("### ⚙️ Pipeline Running")
 
+        # Build time window dict if enabled
+        time_window = None
+        if use_time_window:
+            import datetime as _dt
+            tw_start_dt = _dt.datetime.combine(tw_date, tw_start_time)
+            tw_end_dt   = _dt.datetime.combine(tw_date, tw_end_time)
+            time_window = {
+                "enabled": True,
+                "start":   tw_start_dt.isoformat(),
+                "end":     tw_end_dt.isoformat(),
+            }
+
         with st.status("🔄 Analysing logs…", expanded=True) as status:
-            result = run_pipeline_ui(file_paths, cfg, output_dir)
+            result = run_pipeline_ui(file_paths, cfg, output_dir, time_window=time_window)
             if result:
                 # Persist result and report bytes in session state so they
                 # survive button-click reruns (e.g. "View Online" toggle)
