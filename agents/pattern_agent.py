@@ -118,7 +118,7 @@ def _llm_pass(suspicious_lines: list[str], cfg: dict) -> list[PatternFinding]:
         return []
 
     llm_cfg  = cfg.get("openai", {})
-    api_key  = llm_cfg.get("api_key", "")
+    api_key  = llm_cfg.get("api_key", "").strip()
     base_url = llm_cfg.get("base_url", "")   # e.g. https://api.groq.com/openai/v1
 
     if not api_key:
