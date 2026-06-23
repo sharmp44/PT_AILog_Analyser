@@ -145,6 +145,34 @@ _PARSERS = {
 }
 
 
+def _apply_timezone(df: pd.DataFrame, tz_str: str) -> pd.DataFrame:
+    """
+    Re-interpret timestamps as being in tz_str, then convert to UTC.
+    Handles both naive and already-tz-aware (UTC) timestamps from parsers.
+    """
+    if not tz_str or tz_str in ("UTC", "GMT"):
+        return df
+    df = df.copy()
+    ts = df["timestamp"]
+    try:
+        if ts.dt.tz is None:
+            # Naive → localize to source tz → UTC
+            df["timestamp"] = ts.dt.tz_localize(tz_str, ambiguous="infer",
+                                                  nonexistent="shift_forward"
+                                                  ).dt.tz_convert("UTC")
+        else:
+            # Already tz-aware (parser set UTC by default) → strip → re-localize → UTC
+            df["timestamp"] = (
+                ts.dt.tz_localize(None)
+                  .dt.tz_localize(tz_str, ambiguous="infer",
+                                   nonexistent="shift_forward")
+                  .dt.tz_convert("UTC")
+            )
+    except Exception as e:
+        log.warning(f"Timezone conversion failed ({tz_str}): {e} — keeping as-is")
+    return df
+
+
 def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
     parser = _PARSERS.get(kind)
     if parser is None:
@@ -157,7 +185,8 @@ def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
 
 
 def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
-                    time_window: dict | None = None) -> dict | None:
+                    time_window: dict | None = None,
+                    tz_cfg: dict | None = None) -> dict | None:
     """Run the full pipeline with Streamlit progress indicators."""
 
     # ── Phase 1: Ingest ───────────────────────────────────────────────────────
@@ -173,9 +202,14 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
             continue
         df = _parse_file(fp, kind, cfg)
         if df is not None and not df.empty:
+            # Apply per-source timezone correction before normalising
+            if tz_cfg and kind in tz_cfg:
+                df = _apply_timezone(df, tz_cfg[kind])
             dfs.append(df)
+            tz_label = (tz_cfg or {}).get(kind, "UTC")
             file_info.append({"File": fp.name, "Type": kind.upper(), "Rows": len(df),
-                              "Metrics": df["metric_name"].nunique()})
+                              "Metrics": df["metric_name"].nunique(),
+                              "Timezone": tz_label})
         prog.progress((i + 1) / len(file_paths))
 
     if not dfs:
@@ -481,6 +515,40 @@ with st.sidebar:
     max_recomp = st.number_input("Max Re-compilations/sec",        value=10.0, step=1.0, format="%.1f")
 
     st.markdown("---")
+    st.markdown("#### 🌍 Log Timezones")
+    st.caption("Set the timezone each log source uses. All will be aligned to UTC for analysis.")
+
+    _TZ_OPTIONS = [
+        "UTC / GMT",
+        "Europe/London (BST/GMT auto)",
+        "UTC+1 (fixed)",
+        "UTC+2 (fixed)",
+        "UTC+3 (fixed)",
+        "UTC-5 (EST)",
+        "UTC-8 (PST)",
+    ]
+    _TZ_MAP = {
+        "UTC / GMT":                  "UTC",
+        "Europe/London (BST/GMT auto)":"Europe/London",
+        "UTC+1 (fixed)":              "Etc/GMT-1",
+        "UTC+2 (fixed)":              "Etc/GMT-2",
+        "UTC+3 (fixed)":              "Etc/GMT-3",
+        "UTC-5 (EST)":                "Etc/GMT+5",
+        "UTC-8 (PST)":                "Etc/GMT+8",
+    }
+
+    tz_iis = st.selectbox("IIS Log Timezone",        _TZ_OPTIONS, index=0)
+    tz_blg = st.selectbox("BLG / PerfMon Timezone",  _TZ_OPTIONS, index=1)
+    tz_lr  = st.selectbox("LoadRunner Timezone",      _TZ_OPTIONS, index=1)
+    tz_sql = st.selectbox("SQL Server Timezone",      _TZ_OPTIONS, index=1)
+
+    tz_cfg = {
+        "iis": _TZ_MAP[tz_iis],
+        "blg": _TZ_MAP[tz_blg],
+        "lr":  _TZ_MAP[tz_lr],
+        "sql": _TZ_MAP[tz_sql],
+    }
+
     st.markdown("#### ⏱️ Test Time Window")
     st.caption("Filter logs to your test period only. Leave disabled to analyse all data.")
     use_time_window = st.toggle("Enable Time Window Filter", value=False)
@@ -612,6 +680,7 @@ if uploaded_files:
         st.markdown("---")
         st.markdown("### ⚙️ Pipeline Running")
 
+        # tz_cfg is already built in sidebar scope — available here
         # Build time window dict if enabled
         time_window = None
         if use_time_window:
@@ -625,7 +694,9 @@ if uploaded_files:
             }
 
         with st.status("🔄 Analysing logs…", expanded=True) as status:
-            result = run_pipeline_ui(file_paths, cfg, output_dir, time_window=time_window)
+            result = run_pipeline_ui(file_paths, cfg, output_dir,
+                                     time_window=time_window,
+                                     tz_cfg=tz_cfg)
             if result:
                 # Persist result and report bytes in session state so they
                 # survive button-click reruns (e.g. "View Online" toggle)
