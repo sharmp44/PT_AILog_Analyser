@@ -33,18 +33,21 @@ _EXT_MAP: dict[str, str] = {
 
 # File name hints that override extension-based detection
 _NAME_HINTS: list[tuple[str, str]] = [
-    ("vuser",    "lr"),
-    ("output",   "lr"),
-    ("results",  "lr"),
-    ("sql",      "sql"),   # SQL Server PerfMon CSV
-    ("sqlserver","sql"),
-    ("mssql",    "sql"),
-    ("perfmon",  "blg"),
-    ("iis",      "iis"),
-    ("access",   "iis"),
-    ("w3svc",    "iis"),
-    ("u_ex",     "iis"),   # IIS default log name pattern
-    ("ex",       "iis"),
+    ("vuser",         "lr"),
+    ("output",        "lr"),
+    ("results",       "lr"),
+    ("loadrunner",    "lr"),   # e.g. LoadRunner_Transactions.csv
+    ("transaction",   "lr"),   # e.g. LR_Transactions.csv
+    ("lr_",           "lr"),   # e.g. lr_results.csv
+    ("sql",           "sql"),  # SQL Server PerfMon CSV
+    ("sqlserver",     "sql"),
+    ("mssql",         "sql"),
+    ("perfmon",       "blg"),
+    ("iis",           "iis"),
+    ("access",        "iis"),
+    ("w3svc",         "iis"),
+    ("u_ex",          "iis"),  # IIS default log name pattern
+    ("ex",            "iis"),
 ]
 
 
@@ -71,6 +74,14 @@ def detect_type(path: Path) -> str | None:
             if "sqlserver:" in content:
                 return "sql"
             if "notify:" in content or "action.c" in content:
+                return "lr"
+            # LR Analysis aggregated export
+            if "transaction name" in content and (
+                "average" in content or "percentile" in content or "throughput" in content
+            ):
+                return "lr"
+            # LR raw per-transaction CSV (script | transaction | ... | response time)
+            if "transaction" in content and "response time" in content:
                 return "lr"
         except Exception:
             pass

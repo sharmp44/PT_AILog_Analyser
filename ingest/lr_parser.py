@@ -79,6 +79,79 @@ def _normalise_col(c: str) -> str:
     return _COL_ALIASES.get(c.strip().lower(), c.strip().lower().replace(" ", "_"))
 
 
+# ── Raw transaction CSV detector ────────────────────────────────────────────
+
+def _is_raw_tx_csv(path: Path) -> bool:
+    """
+    Detect raw per-transaction CSVs exported from LR/NeoLoad with columns:
+    script | transaction | ... | start time | end time | response time(secs)
+    """
+    try:
+        header = pd.read_csv(path, nrows=0).columns.str.lower().tolist()
+        return "transaction" in header and "response time(secs)" in " ".join(header)
+    except Exception:
+        return False
+
+
+# ── Raw per-transaction CSV parser ──────────────────────────────────────────
+
+def _parse_raw_tx_csv(path: Path, cfg: dict) -> pd.DataFrame:
+    """
+    Parse raw transaction-level CSV with columns:
+    script, transaction, region, emulation, vuser id, start time, end time,
+    response time(secs)
+
+    start time / end time are Unix timestamps in milliseconds.
+    """
+    raw = pd.read_csv(path, low_memory=False)
+    # Normalise column names
+    raw.columns = [c.strip().lower().replace(" ", "_") for c in raw.columns]
+
+    rows = []
+    sla_sec = cfg.get("sla", {}).get("p95_latency_ms", 2000) / 1000
+
+    for _, row in raw.iterrows():
+        tx      = str(row.get("transaction", row.get("script", "unknown"))).strip()
+        vuser   = str(row.get("vuser_id", row.get("vuser id", "0")))
+
+        # Convert Unix ms timestamp → datetime
+        try:
+            start_ms = float(str(row.get("start_time", row.get("start time", 0)))
+                             .replace(",", ""))
+            ts = pd.Timestamp(start_ms, unit="ms", tz="UTC")
+        except Exception:
+            ts = pd.Timestamp.utcnow()
+
+        # Response time
+        try:
+            resp_col = next(
+                c for c in raw.columns
+                if "response" in c and "time" in c
+            )
+            resp_sec = float(row[resp_col])
+        except Exception:
+            continue
+
+        sev = "critical" if resp_sec > sla_sec else (
+              "warn"     if resp_sec > sla_sec * 0.8 else "info")
+
+        rows.append({
+            "timestamp":        ts,
+            "source":           "loadrunner",
+            "metric_name":      "tx_response_sec",
+            "value":            resp_sec,
+            "unit":             "s",
+            "severity":         sev,
+            "raw_line":         f"{tx}|response={resp_sec}s",
+            "transaction_name": tx,
+            "vuser_id":         vuser,
+            "phase":            "unknown",
+        })
+
+    log.info(f"[lr_parser] Raw TX CSV: {len(rows)} transactions parsed from {path.name}")
+    return pd.DataFrame(rows)
+
+
 # ── CSV result file parser ──────────────────────────────────────────────────
 
 def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
@@ -234,7 +307,9 @@ def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
     log.info(f"Parsing LoadRunner file: {path}")
 
     suffix = path.suffix.lower()
-    if suffix in (".csv", ".txt", ".tsv"):
+    if suffix in (".csv", ".txt", ".tsv") and _is_raw_tx_csv(path):
+        df = _parse_raw_tx_csv(path, cfg)
+    elif suffix in (".csv", ".txt", ".tsv"):
         df = _parse_results_csv(path, cfg)
     elif suffix == ".log":
         df = _parse_vuser_log(path, cfg)
