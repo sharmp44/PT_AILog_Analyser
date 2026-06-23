@@ -129,6 +129,8 @@ def _llm_pass(suspicious_lines: list[str], cfg: dict) -> list[PatternFinding]:
         from openai import OpenAI
         client = OpenAI(
             api_key=api_key,
+            timeout=60.0,
+            max_retries=5,
             **({ "base_url": base_url } if base_url else {}),
         )
     except ImportError:
