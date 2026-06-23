@@ -16,7 +16,8 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
-load_dotenv()  # loads OPENAI_API_KEY from .env file automatically
+load_dotenv()
+print(load_dotenv())
 
 # ── Project root on sys.path ─────────────────────────────────────────────────
 ROOT = Path(__file__).parent
