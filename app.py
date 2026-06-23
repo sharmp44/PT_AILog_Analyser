@@ -489,34 +489,86 @@ def show_results(result: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════════
+
+import datetime as _dt
+
+# Extra CSS for coloured expander headers
+st.markdown("""
+<style>
+/* Coloured left-border per expander using nth-child targeting via class trick */
+.sla-expander    details { border-left: 4px solid #388bfd !important; border-radius: 8px; }
+.sql-expander    details { border-left: 4px solid #3fb950 !important; border-radius: 8px; }
+.tz-expander     details { border-left: 4px solid #d29922 !important; border-radius: 8px; }
+.tw-expander     details { border-left: 4px solid #ab47bc !important; border-radius: 8px; }
+
+/* Expander summary text colour */
+.sla-expander summary span { color: #388bfd !important; font-weight: 600; }
+.sql-expander summary span { color: #3fb950 !important; font-weight: 600; }
+.tz-expander  summary span { color: #d29922 !important; font-weight: 600; }
+.tw-expander  summary span { color: #ab47bc !important; font-weight: 600; }
+
+/* General expander polish */
+[data-testid="stExpander"] details {
+    background: #0d1117 !important;
+    border: 1px solid #21262d !important;
+    border-radius: 8px !important;
+    margin-bottom: 0.5rem;
+}
+[data-testid="stExpander"] summary {
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.9rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
+    # ── Logo ─────────────────────────────────────────────────────────────────
     st.markdown("""
-    <div style="text-align:center;padding:1rem 0 1.5rem 0;">
-        <div style="font-size:2.5rem">🔬</div>
-        <div style="font-size:1.1rem;font-weight:700;color:#f0f6fc">PT AI Log Analyser</div>
-        <div style="font-size:0.75rem;color:#8b949e">AI-Powered RCA Engine</div>
+    <div style="text-align:center;padding:1rem 0 1rem 0;
+                border-bottom:1px solid #21262d;margin-bottom:1rem;">
+        <div style="font-size:2rem">🔬</div>
+        <div style="font-size:1rem;font-weight:700;color:#f0f6fc">PT AI Log Analyser</div>
+        <div style="font-size:0.7rem;color:#8b949e;margin-top:2px">AI-Powered RCA Engine</div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("#### 📊 SLA Thresholds")
-    p95_ms     = st.number_input("P95 Latency (ms)",    value=2000, step=100)
-    error_pct  = st.number_input("Max Error Rate (%)",  value=1.0,  step=0.1, format="%.1f")
-    cpu_pct    = st.number_input("CPU Alert (%)",        value=85,   step=5)
-    mem_pct    = st.number_input("Memory Alert (%)",     value=90,   step=5)
-    disk_q     = st.number_input("Disk Queue Length",    value=2.0,  step=0.5, format="%.1f")
-    tps_drop   = st.number_input("TPS Drop Alert (%)",   value=20.0, step=5.0, format="%.1f")
+    # ── 1. SLA Thresholds (BLUE) ─────────────────────────────────────────────
+    st.markdown("""<div style="background:#1a2a4a;border-left:4px solid #388bfd;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;">
+        <span style="color:#388bfd;font-weight:700;font-size:0.85rem">📊 SLA Thresholds</span>
+    </div>""", unsafe_allow_html=True)
 
-    st.markdown("#### 🗄️ SQL Server SLA")
-    min_cache  = st.number_input("Min Buffer Cache Hit (%)",       value=95.0, step=1.0, format="%.1f")
-    min_ple    = st.number_input("Min Page Life Expectancy (s)",   value=300,  step=60)
-    max_deadlk = st.number_input("Max Deadlocks/sec",              value=0.1,  step=0.1, format="%.1f")
-    max_locks  = st.number_input("Max Lock Waits/sec",             value=5.0,  step=1.0, format="%.1f")
-    max_block  = st.number_input("Max Blocked Processes",          value=5,    step=1)
-    max_recomp = st.number_input("Max Re-compilations/sec",        value=10.0, step=1.0, format="%.1f")
+    with st.expander("Expand to configure SLA thresholds", expanded=False):
+        p95_ms    = st.number_input("P95 Latency (ms)",   value=2000, step=100)
+        error_pct = st.number_input("Max Error Rate (%)", value=1.0,  step=0.1, format="%.1f")
+        cpu_pct   = st.number_input("CPU Alert (%)",       value=85,   step=5)
+        mem_pct   = st.number_input("Memory Alert (%)",    value=90,   step=5)
+        disk_q    = st.number_input("Disk Queue Length",   value=2.0,  step=0.5, format="%.1f")
+        tps_drop  = st.number_input("TPS Drop Alert (%)",  value=20.0, step=5.0, format="%.1f")
+    # defaults if not expanded
+    if "p95_ms" not in dir():
+        p95_ms = 2000; error_pct = 1.0; cpu_pct = 85
+        mem_pct = 90; disk_q = 2.0; tps_drop = 20.0
 
-    st.markdown("---")
-    st.markdown("#### 🌍 Log Timezones")
-    st.caption("Set the timezone each log source uses. All will be aligned to UTC for analysis.")
+    # ── 2. SQL Server SLA (GREEN) ─────────────────────────────────────────────
+    st.markdown("""<div style="background:#1a2d1a;border-left:4px solid #3fb950;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;margin-top:8px;">
+        <span style="color:#3fb950;font-weight:700;font-size:0.85rem">🗄️ SQL Server SLA</span>
+    </div>""", unsafe_allow_html=True)
+
+    with st.expander("Expand to configure SQL Server thresholds", expanded=False):
+        min_cache  = st.number_input("Min Buffer Cache Hit (%)",      value=95.0, step=1.0,  format="%.1f")
+        min_ple    = st.number_input("Min Page Life Expectancy (s)",  value=300,  step=60)
+        max_deadlk = st.number_input("Max Deadlocks/sec",             value=0.1,  step=0.1,  format="%.1f")
+        max_locks  = st.number_input("Max Lock Waits/sec",            value=5.0,  step=1.0,  format="%.1f")
+        max_block  = st.number_input("Max Blocked Processes",         value=5,    step=1)
+        max_recomp = st.number_input("Max Re-compilations/sec",       value=10.0, step=1.0,  format="%.1f")
+
+    # ── 3. Log Timezones (AMBER) ─────────────────────────────────────────────
+    st.markdown("""<div style="background:#2d2510;border-left:4px solid #d29922;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;margin-top:8px;">
+        <span style="color:#d29922;font-weight:700;font-size:0.85rem">🌍 Log Timezones</span>
+    </div>""", unsafe_allow_html=True)
 
     _TZ_OPTIONS = [
         "UTC / GMT",
@@ -528,46 +580,57 @@ with st.sidebar:
         "UTC-8 (PST)",
     ]
     _TZ_MAP = {
-        "UTC / GMT":                  "UTC",
-        "Europe/London (BST/GMT auto)":"Europe/London",
-        "UTC+1 (fixed)":              "Etc/GMT-1",
-        "UTC+2 (fixed)":              "Etc/GMT-2",
-        "UTC+3 (fixed)":              "Etc/GMT-3",
-        "UTC-5 (EST)":                "Etc/GMT+5",
-        "UTC-8 (PST)":                "Etc/GMT+8",
+        "UTC / GMT":                   "UTC",
+        "Europe/London (BST/GMT auto)": "Europe/London",
+        "UTC+1 (fixed)":               "Etc/GMT-1",
+        "UTC+2 (fixed)":               "Etc/GMT-2",
+        "UTC+3 (fixed)":               "Etc/GMT-3",
+        "UTC-5 (EST)":                 "Etc/GMT+5",
+        "UTC-8 (PST)":                 "Etc/GMT+8",
     }
 
-    tz_iis = st.selectbox("IIS Log Timezone",        _TZ_OPTIONS, index=0)
-    tz_blg = st.selectbox("BLG / PerfMon Timezone",  _TZ_OPTIONS, index=1)
-    tz_lr  = st.selectbox("LoadRunner Timezone",      _TZ_OPTIONS, index=1)
-    tz_sql = st.selectbox("SQL Server Timezone",      _TZ_OPTIONS, index=1)
+    with st.expander("Expand to set per-source timezones", expanded=False):
+        st.caption("All sources will be aligned to UTC before analysis.")
+        tz_iis = st.selectbox("🌐 IIS Log Timezone",       _TZ_OPTIONS, index=0)
+        tz_blg = st.selectbox("🪟 BLG / PerfMon Timezone", _TZ_OPTIONS, index=1)
+        tz_lr  = st.selectbox("🏃 LoadRunner Timezone",     _TZ_OPTIONS, index=1)
+        tz_sql = st.selectbox("🗄️ SQL Server Timezone",     _TZ_OPTIONS, index=1)
 
     tz_cfg = {
-        "iis": _TZ_MAP[tz_iis],
-        "blg": _TZ_MAP[tz_blg],
-        "lr":  _TZ_MAP[tz_lr],
-        "sql": _TZ_MAP[tz_sql],
+        "iis": _TZ_MAP.get(tz_iis if "tz_iis" in dir() else "UTC / GMT", "UTC"),
+        "blg": _TZ_MAP.get(tz_blg if "tz_blg" in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
+        "lr":  _TZ_MAP.get(tz_lr  if "tz_lr"  in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
+        "sql": _TZ_MAP.get(tz_sql if "tz_sql" in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
     }
 
-    st.markdown("#### ⏱️ Test Time Window")
-    st.caption("Filter logs to your test period only. Leave disabled to analyse all data.")
+    # ── 4. Time Window (PURPLE) ──────────────────────────────────────────────
+    st.markdown("""<div style="background:#1e1228;border-left:4px solid #ab47bc;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;margin-top:8px;">
+        <span style="color:#ab47bc;font-weight:700;font-size:0.85rem">⏱️ Test Time Window</span>
+    </div>""", unsafe_allow_html=True)
+
     use_time_window = st.toggle("Enable Time Window Filter", value=False)
 
-    import datetime as _dt
-    tw_date       = st.date_input("Test Date", value=_dt.date.today())
-    tw_start_time = st.time_input("Start Time", value=_dt.time(9, 0, 0))
-    tw_end_time   = st.time_input("End Time",   value=_dt.time(18, 0, 0))
+    if use_time_window:
+        with st.expander("Set time window", expanded=True):
+            st.caption("Filter logs to your exact test period only.")
+            tw_date       = st.date_input("Test Date",  value=_dt.date.today())
+            tw_start_time = st.time_input("Start Time", value=_dt.time(9, 0, 0))
+            tw_end_time   = st.time_input("End Time",   value=_dt.time(18, 0, 0))
+            if tw_start_time >= tw_end_time:
+                st.warning("⚠️ End time must be after start time.")
+                use_time_window = False
+    else:
+        tw_date       = _dt.date.today()
+        tw_start_time = _dt.time(9, 0, 0)
+        tw_end_time   = _dt.time(18, 0, 0)
 
-    if use_time_window and tw_start_time >= tw_end_time:
-        st.warning("⚠️ End time must be after start time.")
-        use_time_window = False
-
+    # ── Footer ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("""
-    <div style="font-size:0.75rem;color:#8b949e;text-align:center">
-        Supported log types:<br>
-        🪟 BLG/PerfMon CSV &nbsp;|&nbsp; 🌐 IIS W3C<br>
-        🏃 LoadRunner CSV/log &nbsp;|&nbsp; 🗄️ SQL PerfMon CSV
+    <div style="font-size:0.72rem;color:#8b949e;text-align:center;line-height:1.8">
+        🪟 BLG/PerfMon &nbsp;·&nbsp; 🌐 IIS W3C<br>
+        🏃 LoadRunner &nbsp;·&nbsp; 🗄️ SQL Server
     </div>
     """, unsafe_allow_html=True)
 
