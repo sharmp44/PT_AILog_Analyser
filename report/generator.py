@@ -365,7 +365,7 @@ def generate(
     }
 
     env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)), autoescape=True)
-    env.filters["min"] = lambda a, b: min(a, b)
+    env.filters["min"] = min
     template = env.get_template(_TEMPLATE_FILE)
     html_content = template.render(**context)
 
