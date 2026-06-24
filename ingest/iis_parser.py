@@ -125,65 +125,70 @@ def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
 
     # ── 5a: response time rows (time-taken field) ─────────────────────────────
     if "time-taken" in raw.columns:
-        tt = pd.to_numeric(raw["time-taken"], errors="coerce")
-        mask = tt.notna()
-        tt = tt[mask]
+        mask_rt = pd.to_numeric(raw["time-taken"], errors="coerce").notna()
+        raw_rt  = raw[mask_rt].copy()
+        tt      = pd.to_numeric(raw_rt["time-taken"], errors="coerce")
 
-        rt_sev = pd.Series("info", index=tt.index, dtype=str)
+        rt_sev = pd.Series("info", index=raw_rt.index, dtype=str)
         rt_sev[tt > sla_ms]                          = "critical"
         rt_sev[(tt > sla_ms * 0.8) & (tt <= sla_ms)] = "warn"
 
         dfs.append(pd.DataFrame({
-            "timestamp":   raw.loc[tt.index, "timestamp"],
+            "timestamp":   raw_rt["timestamp"],        # Series keeps tz dtype
             "source":      "iis",
             "metric_name": "response_time_ms",
-            "value":       tt.values,
+            "value":       tt,
             "unit":        "ms",
-            "severity":    rt_sev.values,
+            "severity":    rt_sev,
             "raw_line":    "",
-            "uri_stem":    uri_stem.loc[tt.index].values,
-            "method":      method.loc[tt.index].values,
-            "status_code": status_code.loc[tt.index].values,
-            "client_ip":   client_ip.loc[tt.index].values,
+            "uri_stem":    uri_stem.loc[raw_rt.index],
+            "method":      method.loc[raw_rt.index],
+            "status_code": status_code.loc[raw_rt.index],
+            "client_ip":   client_ip.loc[raw_rt.index],
         }))
 
     # ── 5b: one http_status row per request (for error counting) ─────────────
     dfs.append(pd.DataFrame({
-        "timestamp":   raw["timestamp"].values,
+        "timestamp":   raw["timestamp"],               # Series keeps tz dtype
         "source":      "iis",
         "metric_name": "http_status",
-        "value":       status_code.astype(float).values,
+        "value":       status_code.astype(float),
         "unit":        "",
-        "severity":    http_sev.values,
+        "severity":    http_sev,
         "raw_line":    "",
-        "uri_stem":    uri_stem.values,
-        "method":      method.values,
-        "status_code": status_code.values,
-        "client_ip":   client_ip.values,
+        "uri_stem":    uri_stem,
+        "method":      method,
+        "status_code": status_code,
+        "client_ip":   client_ip,
     }))
 
     # ── 5c: bytes sent (sc-bytes) ─────────────────────────────────────────────
     if "sc-bytes" in raw.columns:
-        sb = pd.to_numeric(raw["sc-bytes"], errors="coerce").dropna()
+        mask_sb = pd.to_numeric(raw["sc-bytes"], errors="coerce").notna()
+        raw_sb  = raw[mask_sb].copy()
+        sb      = pd.to_numeric(raw_sb["sc-bytes"], errors="coerce")
         if not sb.empty:
             dfs.append(pd.DataFrame({
-                "timestamp":   raw.loc[sb.index, "timestamp"].values,
+                "timestamp":   raw_sb["timestamp"],    # Series keeps tz dtype
                 "source":      "iis",
                 "metric_name": "bytes_sent",
-                "value":       sb.values,
+                "value":       sb,
                 "unit":        "B",
                 "severity":    "info",
                 "raw_line":    "",
-                "uri_stem":    uri_stem.loc[sb.index].values,
-                "method":      method.loc[sb.index].values,
-                "status_code": status_code.loc[sb.index].values,
-                "client_ip":   client_ip.loc[sb.index].values,
+                "uri_stem":    uri_stem.loc[raw_sb.index],
+                "method":      method.loc[raw_sb.index],
+                "status_code": status_code.loc[raw_sb.index],
+                "client_ip":   client_ip.loc[raw_sb.index],
             }))
 
     if not dfs:
         return pd.DataFrame()
 
     df = pd.concat(dfs, ignore_index=True)
+    # Re-cast after concat to guarantee tz-aware UTC (handles any edge-case dtype drift)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"])
     df.sort_values("timestamp", inplace=True)
     df.reset_index(drop=True, inplace=True)
 

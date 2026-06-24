@@ -97,7 +97,13 @@ _COL_ALIASES: dict[str, str] = {
 
 
 def _normalise_col(c: str) -> str:
-    return _COL_ALIASES.get(c.strip().lower(), c.strip().lower().replace(" ", "_"))
+    # Strip parenthetical units like "(sec)", "(Sec)", "(hits/sec)" before alias lookup
+    # so "90th Percentile (Sec)" correctly maps to p90_response_sec
+    cleaned = re.sub(r'\s*\([^)]*\)', '', c).strip().lower()
+    result = _COL_ALIASES.get(cleaned)
+    if result:
+        return result
+    return c.strip().lower().replace(" ", "_")
 
 
 # ── Raw transaction CSV detector ────────────────────────────────────────────
