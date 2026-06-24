@@ -249,8 +249,9 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
     run_id = combined["run_id"].iloc[0] if "run_id" in combined.columns else "unknown"
 
     db_path = cfg.get("pipeline", {}).get("db_path", "/tmp/pt_pipeline_ui.duckdb")
+    _extra_cols = [c for c in ("_server", "_source_file") if c in combined.columns]
     with Store(db_path) as store:
-        store.insert(combined)
+        store.insert(combined.drop(columns=_extra_cols))
 
     # ── Time Window Filter ────────────────────────────────────────────────────
     if time_window and time_window.get("enabled"):
