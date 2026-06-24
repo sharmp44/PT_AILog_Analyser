@@ -191,20 +191,28 @@ def _extract_server_name(filename: str, kind: str) -> str:
     return stem if stem else kind.upper()
 
 
-def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
+def _parse_file(file_path: Path, kind: str, cfg: dict,
+                server_name_map: dict | None = None) -> pd.DataFrame | None:
     parser = _PARSERS.get(kind)
     if parser is None:
         return None
     try:
         df = parser(file_path, cfg)
         if df is not None and not df.empty:
-            # Prefer server name extracted from BLG counter headers (\\SERVER\...) over filename
-            blg_server = df.attrs.get("blg_server")
-            server_name = blg_server if blg_server else _extract_server_name(file_path.name, kind)
+            if kind == "sql":
+                # SQL metrics always get their own fixed card — never merged with PerfMon
+                server_name = "SQL Metrics"
+            else:
+                # Prefer server name from BLG counter headers (\\SERVER\...) over filename
+                blg_server = df.attrs.get("blg_server")
+                server_name = blg_server if blg_server else _extract_server_name(file_path.name, kind)
+                if blg_server:
+                    log.info(f"[app] Using BLG-embedded server name '{blg_server}' for {file_path.name}")
+            # Apply friendly name mapping if provided
+            if server_name_map and server_name in server_name_map:
+                server_name = server_name_map[server_name]
             df["_server"] = server_name
             df["_source_file"] = file_path.name
-            if blg_server:
-                log.info(f"[app] Using BLG-embedded server name '{blg_server}' for {file_path.name}")
         return df
     except Exception as exc:
         st.warning(f"⚠️ Could not parse `{file_path.name}`: {exc}")
@@ -213,7 +221,8 @@ def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
 
 def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
                     time_window: dict | None = None,
-                    tz_cfg: dict | None = None) -> dict | None:
+                    tz_cfg: dict | None = None,
+                    server_name_map: dict | None = None) -> dict | None:
     """Run the full pipeline with Streamlit progress indicators."""
 
     # ── Phase 1: Ingest ───────────────────────────────────────────────────────
@@ -227,7 +236,7 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
         if kind is None:
             st.warning(f"⚠️ Cannot detect type for `{fp.name}` — skipping")
             continue
-        df = _parse_file(fp, kind, cfg)
+        df = _parse_file(fp, kind, cfg, server_name_map=server_name_map)
         if df is not None and not df.empty:
             # Apply per-source timezone correction before normalising
             if tz_cfg and kind in tz_cfg:
@@ -671,6 +680,38 @@ with st.sidebar:
         tw_start_time = _dt.time(9, 0, 0)
         tw_end_time   = _dt.time(18, 0, 0)
 
+    # ── 5. Server Labels (TEAL) ──────────────────────────────────────────────
+    st.markdown("""<div style="background:#0d2520;border-left:4px solid #39d353;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;margin-top:8px;">
+        <span style="color:#39d353;font-weight:700;font-size:0.85rem">🖥️ Server Labels</span>
+    </div>""", unsafe_allow_html=True)
+
+    # Detect unique server names from uploaded files (before parsing)
+    _detected_servers: dict[str, str] = {}
+    if "uploaded_files" in dir() and uploaded_files:
+        for _uf in uploaded_files:
+            _kind = detect_type(Path(_uf.name)) or "auto"
+            if _kind in ("blg", "iis"):
+                _raw = _extract_server_name(_uf.name, _kind)
+                if _raw and _raw not in _detected_servers:
+                    _detected_servers[_raw] = _raw
+
+    with st.expander("Rename detected servers", expanded=bool(_detected_servers)):
+        st.caption("Map the raw hostname to a friendly label shown in the report.")
+        _server_name_map: dict[str, str] = {}
+        if _detected_servers:
+            for _raw_name in sorted(_detected_servers.keys()):
+                _label = st.text_input(
+                    f"Label for **{_raw_name}**",
+                    value=st.session_state.get(f"srv_{_raw_name}", _raw_name),
+                    key=f"srv_{_raw_name}",
+                    placeholder="e.g. App Server 55",
+                )
+                _server_name_map[_raw_name] = _label.strip() or _raw_name
+        else:
+            st.caption("Upload BLG / IIS files first — server names will appear here.")
+            _server_name_map = {}
+
     # ── Footer ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("""
@@ -810,7 +851,8 @@ if uploaded_files:
         with st.status("🔄 Analysing logs…", expanded=True) as status:
             result = run_pipeline_ui(file_paths, cfg, output_dir,
                                      time_window=time_window,
-                                     tz_cfg=tz_cfg)
+                                     tz_cfg=tz_cfg,
+                                     server_name_map=_server_name_map if "_server_name_map" in dir() else {})
             if result:
                 # Persist result and report bytes in session state so they
                 # survive button-click reruns (e.g. "View Online" toggle)
