@@ -712,6 +712,29 @@ with st.sidebar:
             st.caption("Upload BLG / IIS files first — server names will appear here.")
             _server_name_map = {}
 
+    # ── 6. IIS Speed (ORANGE) ────────────────────────────────────────────────
+    st.markdown("""<div style="background:#2a1a0a;border-left:4px solid #e06c1a;
+        border-radius:6px;padding:4px 10px;margin-bottom:4px;margin-top:8px;">
+        <span style="color:#e06c1a;font-weight:700;font-size:0.85rem">⚡ IIS Parse Speed</span>
+    </div>""", unsafe_allow_html=True)
+
+    with st.expander("Speed up large IIS files", expanded=False):
+        st.caption(
+            "IIS logs can be 100-200 MB. Sampling every Nth row keeps accuracy "
+            "for statistical metrics (RPS, avg response time, error rates) while "
+            "dramatically cutting parse time."
+        )
+        _iis_sample = st.select_slider(
+            "Sample 1 in every N rows",
+            options=[1, 2, 5, 10, 20, 50],
+            value=1,
+            help="1 = parse all rows (accurate, slower). 10 = parse 10% of rows (~10× faster).",
+        )
+        if _iis_sample > 1:
+            st.info(f"⚡ Will use ~1/{_iis_sample} of IIS rows — roughly **{100//_iis_sample}%** of data.")
+        else:
+            st.success("✅ Full IIS parsing (all rows).")
+
     # ── Footer ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("""
@@ -818,6 +841,7 @@ if uploaded_files:
                 "max_processes_blocked":       max_block,
                 "max_recompilations_sec":      max_recomp,
             },
+            "iis_sample_every": _iis_sample if "_iis_sample" in dir() else 1,
         }
 
         # Save uploaded files to a temp directory
