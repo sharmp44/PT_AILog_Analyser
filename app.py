@@ -542,15 +542,18 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
     with st.expander("Expand to configure SLA thresholds", expanded=False):
-        p95_ms    = st.number_input("P95 Latency (ms)",   value=2000, step=100)
+        lr_pct    = st.slider("LR Transaction Percentile", min_value=50, max_value=99, value=90, step=1,
+                              help="Which percentile to use for LR transaction SLA severity check (50–99)")
+        p95_ms    = st.number_input("Latency SLA (ms)",    value=2000, step=100,
+                              help=f"Threshold applied to the selected P{lr_pct} value")
         error_pct = st.number_input("Max Error Rate (%)", value=1.0,  step=0.1, format="%.1f")
         cpu_pct   = st.number_input("CPU Alert (%)",       value=85,   step=5)
         mem_pct   = st.number_input("Memory Alert (%)",    value=90,   step=5)
         disk_q    = st.number_input("Disk Queue Length",   value=2.0,  step=0.5, format="%.1f")
         tps_drop  = st.number_input("TPS Drop Alert (%)",  value=20.0, step=5.0, format="%.1f")
     # defaults if not expanded
-    if "p95_ms" not in dir():
-        p95_ms = 2000; error_pct = 1.0; cpu_pct = 85
+    if "lr_pct" not in dir():
+        lr_pct = 90; p95_ms = 2000; error_pct = 1.0; cpu_pct = 85
         mem_pct = 90; disk_q = 2.0; tps_drop = 20.0
 
     # ── 2. SQL Server SLA (GREEN) ─────────────────────────────────────────────
@@ -716,6 +719,9 @@ if uploaded_files:
                 "model":    os.environ.get("OPENAI_MODEL",    base_cfg.get("openai", {}).get("model", "gpt-4o")),
             },
             "sla": {
+                "lr_percentile":   lr_pct,
+                f"p{lr_pct}_latency_ms": p95_ms,
+                "p90_latency_ms":  p95_ms,   # keep for backward compat
                 "p95_latency_ms":  p95_ms,
                 "error_rate_pct":  error_pct,
                 "cpu_pct":         cpu_pct,

@@ -14,6 +14,7 @@ openai:
 
 sla:
   # Thresholds used by Threshold Agent
+  p90_latency_ms: 2000               # p90 response time SLA (primary for LR transactions)
   p95_latency_ms: 2000               # p95 response time SLA
   error_rate_pct: 1.0                # max allowed error rate %
   tps_drop_pct: 20.0                 # alert if TPS drops >20% vs baseline

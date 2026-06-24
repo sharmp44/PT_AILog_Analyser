@@ -70,6 +70,10 @@ _COL_ALIASES: dict[str, str] = {
     "maximum (sec)":         "max_response_sec",
     "maximum":               "max_response_sec",
     "max":                   "max_response_sec",
+    "50th percentile":       "p50_response_sec",
+    "50th":                  "p50_response_sec",
+    "75th percentile":       "p75_response_sec",
+    "75th":                  "p75_response_sec",
     "90th percentile":       "p90_response_sec",
     "90th":                  "p90_response_sec",
     "95th percentile":       "p95_response_sec",
@@ -197,8 +201,18 @@ def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
     raw.columns = [_normalise_col(c) for c in raw.columns]
 
     rows = []
-    metrics = ["avg_response_sec", "p95_response_sec", "p90_response_sec",
+    metrics = ["avg_response_sec", "p50_response_sec", "p75_response_sec",
+               "p90_response_sec", "p95_response_sec", "p99_response_sec",
                "max_response_sec", "tps", "fail_count"]
+
+    # Which percentile to use for SLA severity (configured in sidebar, default 90)
+    sla_pct     = cfg.get("sla", {}).get("lr_percentile", 90)
+    sla_metric  = f"p{sla_pct}_response_sec"
+    sla_key     = f"p{sla_pct}_latency_ms"
+    sla_sec     = cfg.get("sla", {}).get(sla_key,
+                  cfg.get("sla", {}).get("p90_latency_ms",
+                  cfg.get("sla", {}).get("p95_latency_ms", 2000))) / 1000
+    log.info(f"[lr_parser] SLA check: {sla_metric} vs {sla_sec}s")
 
     # Try to get a test start time for relative timestamps
     base_ts = pd.Timestamp.utcnow()
@@ -229,8 +243,7 @@ def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
                 continue
 
             unit = "s" if "sec" in metric else ("tps" if metric == "tps" else "")
-            sla_sec = cfg.get("sla", {}).get("p95_latency_ms", 2000) / 1000
-            if metric == "p95_response_sec":
+            if metric == sla_metric:
                 sev = "critical" if val > sla_sec else ("warn" if val > sla_sec * 0.8 else "info")
             elif metric == "fail_count":
                 sev = "critical" if val > 0 else "info"
