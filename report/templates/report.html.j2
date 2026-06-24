@@ -212,14 +212,21 @@
 <div class="report-header">
   <div class="title-block">
     <p class="eyebrow">Performance test report — AI log mining</p>
-    <h1>{{ company_name }}</h1>
-    <p class="sub">Run ID: {{ run_id }} &nbsp;·&nbsp; Generated: {{ generated_at }}{% if duration_min %} &nbsp;·&nbsp; Duration: {{ duration_min }} min{% endif %}</p>
+    <h1>{% if lr_summary %}{{ lr_summary.test_name }}{% else %}{{ company_name }}{% endif %}</h1>
+    <p class="sub">
+      Run ID: {{ run_id }} &nbsp;·&nbsp; Generated: {{ generated_at }}
+      {% if duration_min %} &nbsp;·&nbsp; Duration: {{ duration_min }} min{% endif %}
+    </p>
   </div>
-  <div>
-    <div class="verdict-badge verdict-{{ verdict }}">{{ verdict }}</div>
-    <p style="font-size:11px;color:#6b7280;margin-top:6px;text-align:right">
-      {{ finding_counts.total }} findings &nbsp;|&nbsp;
-      {{ finding_counts.threshold }} SLA breaches
+  <div style="text-align:right">
+    <div class="verdict-badge verdict-{{ verdict }}">Verdict: {{ verdict }}</div>
+    <p style="font-size:11px;color:var(--muted);margin-top:6px">
+      {{ finding_counts.total }} findings
+      {% if lr_summary and lr_summary.total_failed > 0 %}
+        &nbsp;·&nbsp; <span style="color:var(--red)">{{ lr_summary.total_failed }} failed TXs</span>
+      {% else %}
+        &nbsp;·&nbsp; {{ finding_counts.threshold }} SLA breaches
+      {% endif %}
     </p>
   </div>
 </div>
@@ -243,9 +250,50 @@
 </div>
 {% endmacro %}
 
-<!-- ══ TEST SUMMARY KPIs ══ -->
+<!-- ══ TEST SUMMARY ══ -->
 <div class="section">
   <div class="section-title blue">① Test summary</div>
+
+  {% if lr_summary %}
+  <!-- LR performance KPIs -->
+  <div class="metric-grid">
+    {% if lr_summary.target_tps %}
+    <div class="m-card">
+      <div class="lbl">Target TPS</div>
+      <div class="val ok">{{ lr_summary.target_tps }}</div>
+    </div>
+    {% endif %}
+    {% if lr_summary.achieved_tps is not none %}
+    <div class="m-card">
+      <div class="lbl">Achieved TPS</div>
+      <div class="val {{ lr_summary.tps_sev }}">{{ lr_summary.achieved_tps }}</div>
+    </div>
+    {% endif %}
+    {% if lr_summary.avg_resp is not none %}
+    <div class="m-card">
+      <div class="lbl">Avg Response</div>
+      <div class="val {{ lr_summary.avg_sev }}">{{ lr_summary.avg_resp }}s</div>
+    </div>
+    {% endif %}
+    {% if lr_summary.p90_resp is not none %}
+    <div class="m-card">
+      <div class="lbl">{{ lr_summary.sla_label }} Response</div>
+      <div class="val {{ lr_summary.p90_sev }}">{{ lr_summary.p90_resp }}s</div>
+    </div>
+    {% endif %}
+    {% if lr_summary.p99_resp is not none %}
+    <div class="m-card">
+      <div class="lbl">P99 Response</div>
+      <div class="val {{ lr_summary.p99_sev }}">{{ lr_summary.p99_resp }}s</div>
+    </div>
+    {% endif %}
+    <div class="m-card">
+      <div class="lbl">Failed TXs</div>
+      <div class="val {{ lr_summary.fail_sev }}">{{ lr_summary.total_failed }}</div>
+    </div>
+  </div>
+  {% else %}
+  <!-- Fallback: generic findings summary when no LR data -->
   <div class="metric-grid">
     <div class="m-card">
       <div class="lbl">Total findings</div>
@@ -278,6 +326,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <!-- ══ LR TRANSACTION RESULTS ══ -->
@@ -315,6 +364,11 @@
           <td><span class="badge {{ r.sev }}">{{ r.sev | upper }}</span></td>
         </tr>
         {% endfor %}
+        <tr>
+          <td colspan="10" style="font-size:11px;color:var(--muted);font-style:italic;padding:8px 12px">
+            ↑ All transactions from the loaded LR file(s) are shown above
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>

@@ -333,6 +333,87 @@ def _build_lr_stats(df: pd.DataFrame) -> list[dict]:
     return rows
 
 
+def _build_lr_summary(lr_rows: list[dict], combined_df, cfg: dict) -> dict | None:
+    """Compute top-level LR KPI cards from the transaction rows."""
+    if not lr_rows:
+        return None
+
+    sla_pct = cfg.get("sla", {}).get("lr_percentile", 90)
+    sla_key = f"p{sla_pct}_latency_ms"
+    sla_sec = cfg.get("sla", {}).get(sla_key,
+              cfg.get("sla", {}).get("p90_latency_ms",
+              cfg.get("sla", {}).get("p95_latency_ms", 2000))) / 1000
+
+    # Aggregate across all transactions
+    total_passed = sum(r["passed"] or 0 for r in lr_rows)
+    total_failed = sum(r["failed"] or 0 for r in lr_rows)
+    total_tx     = total_passed + total_failed
+
+    # Weighted averages (weight by pass+fail count)
+    def weighted(key):
+        vals = [(r[key], (r["passed"] or 0) + (r["failed"] or 0))
+                for r in lr_rows if r.get(key) is not None]
+        if not vals: return None
+        total_w = sum(w for _, w in vals) or 1
+        return round(sum(v * w for v, w in vals) / total_w, 3)
+
+    avg_resp = weighted("avg")
+    p90_resp = weighted("p90")
+    p99_resp = weighted("p99")
+
+    # Achieved TPS = sum of per-transaction TPS
+    tps_vals = [r["tps"] for r in lr_rows if r.get("tps") is not None]
+    achieved_tps = round(sum(tps_vals), 1) if tps_vals else None
+
+    # Extract target TPS from LR source filename (e.g. LR_30TPS_...)
+    target_tps = None
+    if combined_df is not None and "_source_file" in combined_df.columns:
+        lr_files = combined_df[combined_df["source"] == "loadrunner"]["_source_file"].unique()
+        for fn in lr_files:
+            m = re.search(r'(\d+)\s*TPS', str(fn), re.IGNORECASE)
+            if m:
+                target_tps = int(m.group(1))
+                break
+
+    # Extract test scenario name from LR filename
+    test_name = cfg.get("report", {}).get("company_name", "Performance Test")
+    if combined_df is not None and "_source_file" in combined_df.columns:
+        lr_files = combined_df[combined_df["source"] == "loadrunner"]["_source_file"].unique()
+        for fn in lr_files:
+            stem = Path(fn).stem
+            stem = re.sub(r'^LR_', '', stem, flags=re.IGNORECASE)
+            stem = re.sub(r'_?RunID_?\d+', '', stem, flags=re.IGNORECASE)
+            stem = re.sub(r'_?\d{6,8}', '', stem)
+            stem = re.sub(r'_?\d{1,2}[A-Za-z]+(?:_\d{4})?', '', stem)
+            test_name = stem.replace('_', ' ').strip(' -')
+            break
+
+    # SLA severity for P90/P99
+    def resp_sev(val):
+        if val is None: return "ok"
+        if val > sla_sec: return "crit"
+        if val > sla_sec * 0.8: return "warn"
+        return "ok"
+
+    return {
+        "test_name":    test_name,
+        "target_tps":   target_tps,
+        "achieved_tps": achieved_tps,
+        "tps_sev":      "warn" if achieved_tps and target_tps and achieved_tps < target_tps * 0.9 else "ok",
+        "avg_resp":     avg_resp,
+        "avg_sev":      resp_sev(avg_resp),
+        "p90_resp":     p90_resp,
+        "p90_sev":      resp_sev(p90_resp),
+        "p99_resp":     weighted("p99"),
+        "p99_sev":      resp_sev(weighted("p99")),
+        "total_passed": total_passed,
+        "total_failed": total_failed,
+        "fail_sev":     "crit" if total_failed > 0 else "ok",
+        "sla_label":    f"P{sla_pct}",
+        "sla_sec":      sla_sec,
+    }
+
+
 # ── Public entry point ───────────────────────────────────────────────────────
 
 def generate(
@@ -350,6 +431,7 @@ def generate(
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     server_stats = _build_server_stats(combined_df, cfg)
     lr_rows      = _build_lr_stats(combined_df)
+    lr_summary   = _build_lr_summary(lr_rows, combined_df, cfg)
 
     # Test duration from combined_df
     duration_min = None
@@ -372,6 +454,7 @@ def generate(
         "timeline":           rca_result.get("timeline", {}),
         "server_stats":       server_stats,
         "lr_rows":            lr_rows,
+        "lr_summary":         lr_summary,
         "duration_min":       duration_min,
         "lr_percentile":      cfg.get("sla", {}).get("lr_percentile", 90),
     }

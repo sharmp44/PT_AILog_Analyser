@@ -19,6 +19,8 @@ Recognised SQL Server counter categories:
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -82,15 +84,60 @@ def _friendly_name(raw_col: str) -> tuple[str, str]:
     return sanitised, ""
 
 
+_SERVER_RX = re.compile(r"\\\\([^\\]+)\\", re.IGNORECASE)
+
+
+def _extract_server_from_csv(csv_path: Path) -> str | None:
+    """Extract the server name from the first counter column header (\\SERVER\...) ."""
+    try:
+        with open(csv_path, errors="replace") as fh:
+            header_line = fh.readline()
+        cols = [c.strip().strip('"') for c in header_line.split(",")]
+        for col in cols[1:]:
+            m = _SERVER_RX.match(col)
+            if m:
+                return m.group(1).upper()
+    except Exception:
+        pass
+    return None
+
+
+def _convert_blg_to_csv(blg_path: Path) -> Path:
+    """Convert .blg → .csv using relog (Windows only)."""
+    csv_path = blg_path.with_suffix(".csv")
+    if csv_path.exists():
+        log.info(f"[sql_parser] Found pre-converted CSV: {csv_path}")
+        return csv_path
+    if sys.platform != "win32":
+        raise RuntimeError(
+            f"Cannot convert .BLG on non-Windows. "
+            f"Pre-convert {blg_path.name} to CSV using relog."
+        )
+    log.info(f"[sql_parser] Running relog to convert {blg_path.name} …")
+    result = subprocess.run(
+        ["relog", str(blg_path), "-f", "CSV", "-o", str(csv_path)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"relog failed: {result.stderr}")
+    log.info(f"[sql_parser] relog produced {csv_path}")
+    return csv_path
+
+
 def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
     """
-    Parse a PerfMon CSV that contains SQL Server counters.
-    Returns a DataFrame in the unified pipeline schema.
+    Parse a PerfMon CSV (or .BLG) that contains SQL Server counters.
+    Returns a DataFrame in the unified pipeline schema with an extra
+    '_blg_server' attribute so app.py can use the real server name.
     """
     path = Path(file_path)
     cfg = cfg or {}
-    log.info(f"Parsing SQL metrics CSV: {path}")
 
+    # Convert .blg → .csv first
+    if path.suffix.lower() == ".blg":
+        path = _convert_blg_to_csv(path)
+
+    log.info(f"Parsing SQL metrics CSV: {path}")
     raw = pd.read_csv(path, header=0, low_memory=False)
     raw.columns = [c.strip().strip('"') for c in raw.columns]
 
@@ -135,6 +182,12 @@ def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df.sort_values("timestamp", inplace=True)
     df.reset_index(drop=True, inplace=True)
+
+    # Attach server name extracted from counter headers so app.py can use it
+    blg_server = _extract_server_from_csv(path)
+    if blg_server:
+        df.attrs["blg_server"] = blg_server
+        log.info(f"[sql_parser] Server name from counter headers: {blg_server}")
 
     log.info(
         f"SQL parsed: {len(df)} rows, {df['metric_name'].nunique()} metrics, "

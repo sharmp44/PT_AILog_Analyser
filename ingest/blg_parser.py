@@ -150,6 +150,15 @@ def parse(file_path: str | Path, cfg: dict | None = None) -> pd.DataFrame:
     df.sort_values("timestamp", inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # Extract server name from counter column headers (e.g. \\LMUKWVRI55\Processor\...)
+    _srv_rx = re.compile(r"\\\\([^\\]+)\\", re.IGNORECASE)
+    for col in metric_cols[:5]:
+        m = _srv_rx.match(col)
+        if m:
+            df.attrs["blg_server"] = m.group(1).upper()
+            log.info(f"[blg_parser] Server name from counter headers: {m.group(1).upper()}")
+            break
+
     log.info(f"BLG parsed: {len(df)} rows, {df['metric_name'].nunique()} metrics, "
              f"span={df['timestamp'].min()} → {df['timestamp'].max()}")
     return df

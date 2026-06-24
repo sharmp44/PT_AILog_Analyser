@@ -52,9 +52,13 @@ _NAME_HINTS: list[tuple[str, str]] = [
 
 
 def detect_type(path: Path) -> str | None:
-    """Return 'blg' | 'iis' | 'lr' | None."""
+    """Return 'blg' | 'iis' | 'lr' | 'sql' | None."""
     suffix = path.suffix.lower()
     if suffix == ".blg":
+        # SQL PerfMon BLG (e.g. SQL_Metrics.blg) → sql parser
+        name_lower = path.name.lower()
+        if any(k in name_lower for k in ("sql", "sqlserver", "mssql")):
+            return "sql"
         return "blg"
 
     name_lower = path.name.lower()

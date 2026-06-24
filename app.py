@@ -198,8 +198,13 @@ def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
     try:
         df = parser(file_path, cfg)
         if df is not None and not df.empty:
-            df["_server"] = _extract_server_name(file_path.name, kind)
+            # Prefer server name extracted from BLG counter headers (\\SERVER\...) over filename
+            blg_server = df.attrs.get("blg_server")
+            server_name = blg_server if blg_server else _extract_server_name(file_path.name, kind)
+            df["_server"] = server_name
             df["_source_file"] = file_path.name
+            if blg_server:
+                log.info(f"[app] Using BLG-embedded server name '{blg_server}' for {file_path.name}")
         return df
     except Exception as exc:
         st.warning(f"⚠️ Could not parse `{file_path.name}`: {exc}")
