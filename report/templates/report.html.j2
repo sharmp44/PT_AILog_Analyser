@@ -5,14 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Performance Test Report</title>
 <style>
+  :root {
+    --bg: #0f0f1a; --card: #181828; --card2: #1e1e30;
+    --border: #2a2a40; --border2: #333348;
+    --text: #e0e0f0; --muted: #8888aa;
+    --blue: #388bfd; --green: #3fb950; --amber: #d29922;
+    --red: #f85149; --purple: #bc8cff; --teal: #39d353;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     font-family: 'Segoe UI', Arial, sans-serif;
-    background: #ffffff;
-    color: #111827;
-    font-size: 13px;
-    line-height: 1.6;
+    background: var(--bg); color: var(--text);
+    font-size: 13px; line-height: 1.6;
   }
 
   .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
@@ -21,71 +26,70 @@
   .report-header {
     display: flex; align-items: flex-start; justify-content: space-between;
     flex-wrap: wrap; gap: 12px;
-    border: 1px solid #e5e7eb; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
     padding: 18px 22px; margin-bottom: 28px;
   }
   .report-header .title-block p.eyebrow {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: #6b7280; margin-bottom: 4px;
+    color: var(--muted); margin-bottom: 4px;
   }
-  .report-header .title-block h1 { font-size: 20px; font-weight: 600; color: #111827; }
-  .report-header .title-block p.sub { font-size: 12px; color: #6b7280; margin-top: 3px; }
+  .report-header .title-block h1 { font-size: 20px; font-weight: 600; color: var(--text); }
+  .report-header .title-block p.sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .verdict-badge {
     display: inline-block; padding: 5px 20px; border-radius: 20px;
-    font-size: 13px; font-weight: 700; letter-spacing: 2px;
-    margin-top: 4px;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; margin-top: 4px;
   }
-  .verdict-PASS { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
-  .verdict-FAIL { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-  .verdict-UNKNOWN { background: #f9fafb; color: #374151; border: 1px solid #d1d5db; }
+  .verdict-PASS    { background: #14532d; color: #4ade80; border: 1px solid #4ade80; }
+  .verdict-FAIL    { background: #450a0a; color: #f87171; border: 1px solid #f87171; }
+  .verdict-UNKNOWN { background: #1f2937; color: #9ca3af; border: 1px solid #4b5563; }
 
   /* ── Section ── */
   .section { margin-bottom: 28px; }
   .section-title {
-    font-size: 12px; font-weight: 600; letter-spacing: 0.05em;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
     text-transform: uppercase; padding: 6px 12px;
-    background: #f9fafb; border-left: 3px solid;
+    background: var(--card); border-left: 3px solid;
     border-radius: 0 6px 6px 0; margin-bottom: 14px;
   }
-  .section-title.blue   { border-color: #1d4ed8; color: #1e40af; }
-  .section-title.green  { border-color: #16a34a; color: #166534; }
-  .section-title.amber  { border-color: #d97706; color: #92400e; }
-  .section-title.red    { border-color: #dc2626; color: #991b1b; }
-  .section-title.purple { border-color: #7c3aed; color: #5b21b6; }
-  .section-title.teal   { border-color: #0891b2; color: #155e75; }
+  .section-title.blue   { border-color: var(--blue);   color: var(--blue); }
+  .section-title.green  { border-color: var(--green);  color: var(--green); }
+  .section-title.amber  { border-color: var(--amber);  color: var(--amber); }
+  .section-title.red    { border-color: var(--red);    color: var(--red); }
+  .section-title.purple { border-color: var(--purple); color: var(--purple); }
+  .section-title.teal   { border-color: var(--teal);   color: var(--teal); }
 
-  hr.divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
   /* ── Metric cards ── */
   .metric-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 10px; margin-bottom: 12px;
   }
-  .m-card { background: #f9fafb; border-radius: 8px; padding: 10px 14px; }
-  .m-card .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase;
+  .m-card { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .m-card .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase;
                  letter-spacing: 0.05em; margin-bottom: 3px; }
-  .m-card .val { font-size: 20px; font-weight: 600; }
-  .val.ok   { color: #166534; }
-  .val.warn { color: #92400e; }
-  .val.crit { color: #991b1b; }
-  .val.info { color: #1e40af; }
+  .m-card .val { font-size: 20px; font-weight: 700; }
+  .val.ok   { color: #4ade80; }
+  .val.warn { color: #fbbf24; }
+  .val.crit { color: #f87171; }
+  .val.info { color: #60a5fa; }
 
   /* ── Tables ── */
   .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .data-table thead th {
-    background: #f3f4f6; color: #374151; font-size: 10px;
+    background: #111; color: var(--muted); font-size: 10px;
     text-transform: uppercase; letter-spacing: 0.05em;
     padding: 8px 12px; text-align: left;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border);
   }
   .data-table tbody td {
-    padding: 7px 12px; border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
+    padding: 7px 12px; border-bottom: 1px solid var(--border2);
+    vertical-align: middle; color: var(--text);
   }
   .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tbody tr:hover td { background: #f9fafb; }
+  .data-table tbody tr:hover td { background: var(--card2); }
   .table-wrap {
-    border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
     margin-bottom: 16px;
   }
 
@@ -94,135 +98,111 @@
     display: inline-block; padding: 2px 9px; border-radius: 10px;
     font-size: 10px; font-weight: 600;
   }
-  .badge.ok   { background: #f0fdf4; color: #166534; }
-  .badge.warn { background: #fffbeb; color: #92400e; }
-  .badge.crit { background: #fef2f2; color: #991b1b; }
-  .badge.info { background: #eff6ff; color: #1e40af; }
+  .badge.ok   { background: #14532d; color: #4ade80; }
+  .badge.warn { background: #451a03; color: #fbbf24; }
+  .badge.crit { background: #450a0a; color: #f87171; }
+  .badge.info { background: #1e3a5f; color: #60a5fa; }
 
   /* ── Bar rows ── */
-  .bar-row {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 12px; margin-bottom: 5px;
-  }
-  .bar-label { width: 130px; color: #6b7280; flex-shrink: 0; }
-  .bar-track {
-    flex: 1; height: 7px; background: #e5e7eb;
-    border-radius: 4px; overflow: hidden;
-  }
-  .bar-fill { height: 100%; border-radius: 4px; }
-  .bar-fill.ok   { background: #16a34a; }
-  .bar-fill.warn { background: #d97706; }
-  .bar-fill.crit { background: #dc2626; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 5px; }
+  .bar-label { width: 130px; color: var(--muted); flex-shrink: 0; }
+  .bar-track { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 4px; }
+  .bar-fill.ok   { background: #22c55e; }
+  .bar-fill.warn { background: #f59e0b; }
+  .bar-fill.crit { background: #ef4444; }
   .bar-val { width: 46px; text-align: right; font-weight: 600; flex-shrink: 0; }
 
   /* ── Server blocks ── */
   .server-block {
-    border: 1px solid #e5e7eb; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
     padding: 16px 18px; margin-bottom: 14px;
   }
   .server-header {
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 8px;
     padding-bottom: 12px; margin-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border);
   }
-  .server-name {
-    font-weight: 600; font-size: 14px; color: #111827;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .server-name .icon { font-size: 16px; color: #6b7280; }
+  .server-name { font-weight: 600; font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
   .tag {
     display: inline-block; padding: 1px 8px; border-radius: 4px;
-    font-size: 10px; background: #f3f4f6; color: #6b7280;
-    border: 1px solid #e5e7eb; margin-left: 6px;
+    font-size: 10px; background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border); margin-left: 6px;
   }
   .status-row { display: flex; gap: 8px; }
   .server-section-title {
     font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.06em; color: #6b7280; margin-bottom: 8px;
+    letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px;
   }
-  .server-divider { border: none; border-top: 1px solid #f3f4f6; margin: 14px 0; }
-
+  .server-divider { border: none; border-top: 1px solid var(--border2); margin: 14px 0; }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-  .finding-row {
-    display: flex; align-items: flex-start; gap: 8px;
-    font-size: 11px; color: #6b7280; margin-top: 6px;
-    padding-top: 8px; border-top: 1px solid #f3f4f6;
+  /* ── Finding rows ── */
+  .findings-area { margin-top: 12px; border-top: 1px solid var(--border2); padding-top: 10px; }
+  .finding-healthy {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: #4ade80;
   }
-  .finding-row:first-of-type { margin-top: 12px; }
-  .finding-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+  .finding-callout {
+    display: flex; align-items: flex-start; gap: 10px;
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 12px;
   }
-  .finding-dot.crit { background: #dc2626; }
-  .finding-dot.warn { background: #d97706; }
-  .finding-dot.ok   { background: #16a34a; }
+  .finding-callout:last-child { margin-bottom: 0; }
+  .finding-callout.crit { background: #2d0a0a; border-left: 3px solid #ef4444; color: #fca5a5; }
+  .finding-callout.warn { background: #2d1a00; border-left: 3px solid #f59e0b; color: #fde68a; }
+  .finding-callout-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
 
   /* ── Summary box ── */
   .summary-box {
-    background: #fffbeb; border-left: 3px solid #d97706;
+    background: var(--card); border-left: 3px solid var(--amber);
     border-radius: 0 8px 8px 0; padding: 14px 18px;
-    font-size: 13px; line-height: 1.7; color: #374151;
-    margin-bottom: 16px;
+    font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 16px;
   }
 
-  /* ── Cause-effect chain ── */
+  /* ── Chain ── */
   .chain { list-style: none; }
   .chain li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
   .chain-num {
-    background: #7c3aed; color: #fff; border-radius: 50%;
+    background: var(--purple); color: #fff; border-radius: 50%;
     width: 22px; height: 22px; min-width: 22px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700;
+    font-size: 10px; font-weight: 800;
   }
   .chain-txt {
-    background: #faf5ff; border: 1px solid #ede9fe;
-    border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5;
+    background: #1a0d2e; border: 1px solid #3a1060;
+    border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5; color: var(--text);
   }
 
-  /* ── RCA hypothesis cards ── */
-  .hyp-card {
-    border: 1px solid #e5e7eb; border-radius: 8px;
-    padding: 12px 16px; margin-bottom: 10px;
-  }
-  .hyp-card.r1 { border-left: 3px solid #dc2626; }
-  .hyp-card.r2 { border-left: 3px solid #d97706; }
-  .hyp-card.r3 { border-left: 3px solid #1d4ed8; }
-  .hyp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-  .hyp-rank {
-    border-radius: 50%; width: 22px; height: 22px; min-width: 22px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700;
-  }
-  .r1 .hyp-rank { background: #fef2f2; color: #991b1b; }
-  .r2 .hyp-rank { background: #fffbeb; color: #92400e; }
-  .r3 .hyp-rank { background: #eff6ff; color: #1e40af; }
-  .hyp-text { font-weight: 600; flex: 1; font-size: 13px; }
-  .conf-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-  .conf-High   { background: #fef2f2; color: #991b1b; }
-  .conf-Medium { background: #fffbeb; color: #92400e; }
-  .conf-Low    { background: #eff6ff; color: #1e40af; }
-  .hyp-evidence { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  /* ── Hypotheses ── */
+  .hyp-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+  .hyp-card.r1 { border-left: 3px solid #ef4444; }
+  .hyp-card.r2 { border-left: 3px solid #f59e0b; }
+  .hyp-card.r3 { border-left: 3px solid #60a5fa; }
+  .hyp-header  { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .hyp-rank    { border-radius: 50%; width: 22px; height: 22px; min-width: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+  .r1 .hyp-rank { background: #450a0a; color: #f87171; }
+  .r2 .hyp-rank { background: #451a03; color: #fbbf24; }
+  .r3 .hyp-rank { background: #1e3a5f; color: #60a5fa; }
+  .hyp-text { font-weight: 600; flex: 1; font-size: 13px; color: var(--text); }
+  .conf-badge  { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .conf-High   { background: #450a0a; color: #f87171; }
+  .conf-Medium { background: #451a03; color: #fbbf24; }
+  .conf-Low    { background: #1e3a5f; color: #60a5fa; }
+  .hyp-evidence { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
   /* ── Timeline ── */
   .tl-item { display: flex; gap: 12px; margin-bottom: 8px; align-items: flex-start; }
-  .tl-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; min-width: 9px; }
-  .tl-dot.critical { background: #dc2626; }
-  .tl-dot.warn     { background: #d97706; }
-  .tl-dot.info     { background: #1d4ed8; }
-  .tl-ts { font-size: 11px; color: #6b7280; min-width: 175px; }
-  .tl-src {
-    display: inline-block; background: #f3f4f6; border: 1px solid #e5e7eb;
-    border-radius: 3px; padding: 1px 6px; font-size: 9px; color: #6b7280;
-    margin-right: 5px; vertical-align: middle;
-  }
+  .tl-dot  { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; min-width: 9px; }
+  .tl-dot.critical { background: #ef4444; }
+  .tl-dot.warn     { background: #f59e0b; }
+  .tl-dot.info     { background: #60a5fa; }
+  .tl-ts  { font-size: 11px; color: var(--muted); min-width: 175px; }
+  .tl-src { display: inline-block; background: var(--card2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-size: 9px; color: var(--muted); margin-right: 5px; vertical-align: middle; }
   .tl-desc { font-size: 12px; line-height: 1.5; }
 
   /* ── Footer ── */
-  .footer {
-    text-align: center; color: #9ca3af; font-size: 10px;
-    margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb;
-  }
+  .footer { text-align: center; color: var(--muted); font-size: 10px; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -243,6 +223,25 @@
     </p>
   </div>
 </div>
+
+{% macro render_findings(findings) %}
+<div class="findings-area">
+  {% set issues = findings | selectattr("sev", "ne", "ok") | list %}
+  {% if issues %}
+    {% for f in issues %}
+    <div class="finding-callout {{ f.sev }}">
+      <span class="finding-callout-icon">{% if f.sev == "crit" %}&#9888;{% else %}&#9654;{% endif %}</span>
+      <span>{{ f.text }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="finding-healthy">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5"/><path d="M5 8l2.2 2.4L11 5.5" stroke="#4ade80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    All metrics within normal range
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
 
 <!-- ══ TEST SUMMARY KPIs ══ -->
 <div class="section">
@@ -380,12 +379,7 @@
         {% if not loop.last %}<hr class="server-divider">{% endif %}
       {% endfor %}
 
-      {% for f in s.findings %}
-      <div class="finding-row">
-        <div class="finding-dot {{ f.sev }}"></div>
-        <span>{{ f.text }}</span>
-      </div>
-      {% endfor %}
+      {{ render_findings(s.findings) }}
     </div>
     {% endfor %}
   </div>
@@ -422,9 +416,7 @@
       {% endif %}
       {% if not loop.last %}<hr class="server-divider">{% endif %}
     {% endfor %}
-    {% for f in s.findings %}
-    <div class="finding-row"><div class="finding-dot {{ f.sev }}"></div><span>{{ f.text }}</span></div>
-    {% endfor %}
+    {{ render_findings(s.findings) }}
   </div>
   {% endfor %}
   {% endif %}
@@ -461,9 +453,7 @@
       {% endif %}
       {% if not loop.last %}<hr class="server-divider">{% endif %}
     {% endfor %}
-    {% for f in s.findings %}
-    <div class="finding-row"><div class="finding-dot {{ f.sev }}"></div><span>{{ f.text }}</span></div>
-    {% endfor %}
+    {{ render_findings(s.findings) }}
   </div>
   {% endfor %}
 

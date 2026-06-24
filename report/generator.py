@@ -71,8 +71,12 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
         df = df.copy()
         df["_server"] = df["source"].str.upper()
 
+    # Fill any NaN server names with source type as fallback
+    df = df.copy()
+    df["_server"] = df["_server"].fillna(df["source"].str.upper())
+
     servers = []
-    grouped = df.groupby(["_server", "source"], sort=False)
+    grouped = df.groupby(["_server", "source"], sort=False, dropna=False)
 
     for (server_name, source), grp in grouped:
         if source == "loadrunner":
@@ -84,8 +88,14 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
 
         if source == "iis":
             total_req = len(grp)
-            err5xx = int(grp[grp["metric_name"].str.contains("5\d\d|sc-status.*5|error", case=False, na=False)]["value"].count())
-            err4xx = int(grp[grp["metric_name"].str.contains("4\d\d|sc-status.*4", case=False, na=False)]["value"].count())
+            # Use status_code column if available (IIS parser stores it there)
+            if "status_code" in grp.columns:
+                sc = pd.to_numeric(grp["status_code"], errors="coerce").fillna(0)
+                err5xx = int((sc >= 500).sum())
+                err4xx = int(((sc >= 400) & (sc < 500)).sum())
+            else:
+                err5xx = int(grp[grp["metric_name"].str.contains(r"5\d\d|error", case=False, na=False)]["value"].count())
+                err4xx = int(grp[grp["metric_name"].str.contains(r"4\d\d", case=False, na=False)]["value"].count())
             avg_ms  = _metric_stat(grp, ["time.taken", "time_taken", "timetaken", "response.*time"], "mean")
             rps     = round(total_req / max((grp["timestamp"].max() - grp["timestamp"].min()).total_seconds(), 1), 1) if total_req > 0 else 0
 
@@ -112,8 +122,6 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
                 findings.append({"sev": "crit", "text": f"{err5xx:,} HTTP 500 errors detected"})
             if err4xx > 100:
                 findings.append({"sev": "warn", "text": f"{err4xx:,} HTTP 4xx client errors"})
-            if not findings:
-                findings.append({"sev": "ok", "text": "All IIS metrics within normal range"})
 
             servers.append({
                 "name":   server_name,
@@ -142,23 +150,20 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
             if mem_sev  == "crit": sev_counts["crit"] += 1
             elif mem_sev == "warn": sev_counts["warn"] += 1
 
-            metrics = []
-            if cpu is not None:
-                metrics.append({"label": "CPU (peak)",  "value": f"{cpu}%",  "sev": cpu_sev})
-            if mem is not None:
-                metrics.append({"label": "Memory %",    "value": f"{mem}%",  "sev": mem_sev})
-            if dq is not None:
-                metrics.append({"label": "Disk queue",  "value": str(dq),    "sev": dq_sev})
-            if net is not None:
-                metrics.append({"label": "Network MB/s","value": str(round(net/1_000_000 if net > 1_000_000 else net, 1)), "sev": "ok"})
-
-            bars = []
-            if cpu is not None:
-                bars.append({"label": "CPU %",      "pct": min(cpu, 100), "val": f"{cpu}%",  "sev": cpu_sev})
-            if mem is not None:
-                bars.append({"label": "Memory %",   "pct": min(mem, 100), "val": f"{mem}%",  "sev": mem_sev})
-            if dq is not None:
-                bars.append({"label": "Disk queue", "pct": min(dq*20, 100),"val": str(dq),   "sev": dq_sev})
+            def _v(val, fmt): return fmt.format(val) if val is not None else "N/A"
+            metrics = [
+                {"label": "CPU (peak)",   "value": _v(cpu, "{}%"),  "sev": cpu_sev if cpu is not None else "ok"},
+                {"label": "Memory %",     "value": _v(mem, "{}%"),  "sev": mem_sev if mem is not None else "ok"},
+                {"label": "Disk queue",   "value": _v(dq,  "{}"),   "sev": dq_sev  if dq  is not None else "ok"},
+                {"label": "Network MB/s", "value": _v(
+                    round(net/1_000_000 if net is not None and net > 1_000_000 else (net or 0), 1) if net is not None else None,
+                    "{}"), "sev": "ok"},
+            ]
+            bars = [
+                {"label": "CPU %",      "pct": min(cpu, 100) if cpu is not None else 0,      "val": _v(cpu, "{}%"),  "sev": cpu_sev if cpu is not None else "ok"},
+                {"label": "Memory %",   "pct": min(mem, 100) if mem is not None else 0,      "val": _v(mem, "{}%"),  "sev": mem_sev if mem is not None else "ok"},
+                {"label": "Disk queue", "pct": min(dq*20, 100) if dq is not None else 0,     "val": _v(dq, "{}"),    "sev": dq_sev  if dq  is not None else "ok"},
+            ]
 
             findings = []
             if cpu_sev == "crit":
@@ -167,8 +172,8 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
                 findings.append({"sev": "warn", "text": f"CPU peaked at {cpu}% — approaching {cpu_warn}% threshold"})
             if mem_sev in ("warn", "crit"):
                 findings.append({"sev": mem_sev, "text": f"Memory at {mem}% — near threshold"})
-            if not findings:
-                findings.append({"sev": "ok", "text": "All system metrics within thresholds"})
+            if dq_sev in ("warn", "crit"):
+                findings.append({"sev": dq_sev, "text": f"Disk queue length {dq} — exceeds normal threshold"})
 
             servers.append({
                 "name":   server_name,
@@ -203,31 +208,31 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
                 if s == "crit":  sev_counts["crit"] += 1
                 elif s == "warn": sev_counts["warn"] += 1
 
-            sys_metrics, sql_metrics = [], []
-            sys_bars, sql_bars = [], []
+            def _sv(val, fmt): return fmt.format(val) if val is not None else "N/A"
+            mem_sev_sql = _sev(mem_pct, 85, 90)
 
-            if cpu is not None:
-                sys_metrics.append({"label": "CPU (peak)",   "value": f"{cpu}%",   "sev": cpu_sev})
-                sys_bars.append({"label": "CPU %", "pct": min(cpu, 100), "val": f"{cpu}%", "sev": cpu_sev})
-            if mem_pct is not None:
-                sys_metrics.append({"label": "Memory %",    "value": f"{mem_pct}%","sev": _sev(mem_pct, 85, 90)})
-                sys_bars.append({"label": "Memory %", "pct": min(mem_pct,100), "val": f"{mem_pct}%", "sev": _sev(mem_pct,85,90)})
+            sys_metrics = [
+                {"label": "CPU (peak)", "value": _sv(cpu, "{}%"),     "sev": cpu_sev if cpu is not None else "ok"},
+                {"label": "Memory %",  "value": _sv(mem_pct, "{}%"), "sev": mem_sev_sql if mem_pct is not None else "ok"},
+            ]
+            sys_bars = [
+                {"label": "CPU %",    "pct": min(cpu, 100) if cpu is not None else 0,        "val": _sv(cpu, "{}%"),     "sev": cpu_sev if cpu is not None else "ok"},
+                {"label": "Memory %", "pct": min(mem_pct, 100) if mem_pct is not None else 0,"val": _sv(mem_pct, "{}%"), "sev": mem_sev_sql if mem_pct is not None else "ok"},
+            ]
 
-            if bch is not None:
-                sql_metrics.append({"label": "Buffer cache hit", "value": f"{bch}%",  "sev": bch_sev})
-                sql_bars.append({"label": "Buffer cache hit", "pct": min(bch,100), "val": f"{bch}%", "sev": bch_sev})
-            if ple is not None:
-                sql_metrics.append({"label": "Page life exp.", "value": f"{ple}s",   "sev": ple_sev})
-                sql_bars.append({"label": "Page life exp.", "pct": min(ple/10,100), "val": f"{ple}s", "sev": ple_sev})
-            if blocked is not None:
-                sql_metrics.append({"label": "Blocked procs",  "value": str(int(blocked)), "sev": blk_sev})
-                sql_bars.append({"label": "Blocked procs", "pct": min(blocked*10,100), "val": str(int(blocked)), "sev": blk_sev})
-            if dlocks is not None:
-                sql_metrics.append({"label": "Deadlocks/s",   "value": str(dlocks),     "sev": "crit" if dlocks > 0.1 else "ok"})
-            if locks is not None:
-                sql_metrics.append({"label": "Lock waits/s",  "value": str(locks),      "sev": "warn" if locks > 5 else "ok"})
-            if recomp is not None:
-                sql_metrics.append({"label": "Recompiles/s",  "value": str(recomp),     "sev": "warn" if recomp > 10 else "ok"})
+            sql_metrics = [
+                {"label": "Buffer cache hit", "value": _sv(bch, "{}%"),           "sev": bch_sev if bch is not None else "ok"},
+                {"label": "Page life exp.",   "value": _sv(ple, "{}s"),            "sev": ple_sev if ple is not None else "ok"},
+                {"label": "Blocked procs",    "value": _sv(int(blocked) if blocked is not None else None, "{}"), "sev": blk_sev if blocked is not None else "ok"},
+                {"label": "Deadlocks/s",      "value": _sv(dlocks, "{}"),         "sev": ("crit" if dlocks is not None and dlocks > 0.1 else "ok")},
+                {"label": "Lock waits/s",     "value": _sv(locks, "{}"),          "sev": ("warn" if locks is not None and locks > 5 else "ok")},
+                {"label": "Recompiles/s",     "value": _sv(recomp, "{}"),         "sev": ("warn" if recomp is not None and recomp > 10 else "ok")},
+            ]
+            sql_bars = [
+                {"label": "Buffer cache hit", "pct": min(bch, 100) if bch is not None else 0,          "val": _sv(bch, "{}%"), "sev": bch_sev if bch is not None else "ok"},
+                {"label": "Page life exp.",   "pct": min(ple/10, 100) if ple is not None else 0,        "val": _sv(ple, "{}s"), "sev": ple_sev if ple is not None else "ok"},
+                {"label": "Blocked procs",    "pct": min(blocked*10, 100) if blocked is not None else 0,"val": _sv(int(blocked) if blocked is not None else None, "{}"), "sev": blk_sev if blocked is not None else "ok"},
+            ]
 
             findings = []
             if cpu_sev in ("crit", "warn"):
@@ -238,8 +243,6 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
                 findings.append({"sev": ple_sev, "text": f"Page life expectancy {ple}s — near {ple_thresh}s floor"})
             if blk_sev in ("crit", "warn"):
                 findings.append({"sev": blk_sev, "text": f"Blocked processes: {int(blocked)} — exceeded {blk_thresh} threshold"})
-            if not findings:
-                findings.append({"sev": "ok", "text": "All SQL Server metrics within thresholds"})
 
             sections = []
             if sys_metrics:
