@@ -6,6 +6,7 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import os
+import re
 import sys
 import json
 import tempfile
@@ -176,12 +177,30 @@ def _apply_timezone(df: pd.DataFrame, tz_str: str) -> pd.DataFrame:
     return df
 
 
+def _extract_server_name(filename: str, kind: str) -> str:
+    """Derive a human-readable server name from the log filename."""
+    stem = Path(filename).stem
+    # Strip common date patterns
+    stem = re.sub(r'_?\d{2}(?:th|st|nd|rd)?[_\-]?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*',
+                  '', stem, flags=re.IGNORECASE)
+    stem = re.sub(r'_?\d{6,8}', '', stem)
+    # Strip known prefixes
+    for prefix in ['IIS_u_ex', 'IIS_', 'SQL_Counters_', 'SQL_', 'LR_', 'PerfMon_', 'Perfmon_']:
+        stem = re.sub(f'^{prefix}', '', stem, flags=re.IGNORECASE)
+    stem = stem.strip('_- ')
+    return stem if stem else kind.upper()
+
+
 def _parse_file(file_path: Path, kind: str, cfg: dict) -> pd.DataFrame | None:
     parser = _PARSERS.get(kind)
     if parser is None:
         return None
     try:
-        return parser(file_path, cfg)
+        df = parser(file_path, cfg)
+        if df is not None and not df.empty:
+            df["_server"] = _extract_server_name(file_path.name, kind)
+            df["_source_file"] = file_path.name
+        return df
     except Exception as exc:
         st.warning(f"⚠️ Could not parse `{file_path.name}`: {exc}")
         return None
@@ -290,7 +309,8 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
 
     # ── Phase 5: Report ───────────────────────────────────────────────────────
     st.markdown("**⑤ Generating HTML & PDF report…**")
-    paths = generator.generate(rca, output_dir, run_id=run_id, cfg=cfg, export_pdf=True)
+    paths = generator.generate(rca, output_dir, run_id=run_id, cfg=cfg,
+                               export_pdf=True, combined_df=combined)
 
     return {**rca, "report_paths": paths, "run_id": run_id}
 

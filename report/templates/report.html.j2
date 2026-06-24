@@ -3,293 +3,628 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Performance Test Analysis Report</title>
+<title>Performance Test Report</title>
 <style>
-  :root {
-    --blue: #1e4db7; --green: #1a7a3a; --purple: #6a22aa;
-    --orange: #b05a10; --teal: #0e7490; --red: #b91c1c;
-    --bg: #0f0f1a; --card: #181828; --border: #2a2a40;
-    --text: #e0e0f0; --muted: #8888aa;
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg);
-         color: var(--text); padding: 32px; font-size: 13px; }
 
-  /* ─── Header ─── */
-  .header { text-align: center; margin-bottom: 32px; }
-  .header h1 { font-size: 22px; color: #7eb3ff; letter-spacing: 2px; text-transform: uppercase; }
-  .header .sub { color: var(--muted); font-size: 11px; margin-top: 4px; }
-  .verdict-badge {
-    display: inline-block; margin-top: 12px; padding: 6px 28px;
-    border-radius: 20px; font-size: 15px; font-weight: 800; letter-spacing: 3px;
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #ffffff;
+    color: #111827;
+    font-size: 13px;
+    line-height: 1.6;
   }
-  .verdict-PASS { background: #14532d; color: #4ade80; border: 1px solid #4ade80; }
-  .verdict-FAIL { background: #450a0a; color: #f87171; border: 1px solid #f87171; }
 
-  /* ─── Summary cards row ─── */
-  .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 28px; }
-  .kpi { background: var(--card); border: 1px solid var(--border);
-         border-radius: 8px; padding: 14px 16px; text-align: center; }
-  .kpi .val { font-size: 28px; font-weight: 800; }
-  .kpi .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase;
-               letter-spacing: 1px; margin-top: 4px; }
-  .kpi.critical .val { color: #f87171; }
-  .kpi.warn     .val { color: #fbbf24; }
-  .kpi.ok       .val { color: #4ade80; }
-  .kpi.info     .val { color: #60a5fa; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
 
-  /* ─── Sections ─── */
+  /* ── Header ── */
+  .report-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 28px;
+  }
+  .report-header .title-block p.eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #6b7280; margin-bottom: 4px;
+  }
+  .report-header .title-block h1 { font-size: 20px; font-weight: 600; color: #111827; }
+  .report-header .title-block p.sub { font-size: 12px; color: #6b7280; margin-top: 3px; }
+  .verdict-badge {
+    display: inline-block; padding: 5px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px;
+    margin-top: 4px;
+  }
+  .verdict-PASS { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .verdict-FAIL { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .verdict-UNKNOWN { background: #f9fafb; color: #374151; border: 1px solid #d1d5db; }
+
+  /* ── Section ── */
   .section { margin-bottom: 28px; }
   .section-title {
-    font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
-    border-left: 3px solid var(--blue); padding-left: 10px;
-    color: #7eb3ff; margin-bottom: 14px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 6px 12px;
+    background: #f9fafb; border-left: 3px solid;
+    border-radius: 0 6px 6px 0; margin-bottom: 14px;
+  }
+  .section-title.blue   { border-color: #1d4ed8; color: #1e40af; }
+  .section-title.green  { border-color: #16a34a; color: #166534; }
+  .section-title.amber  { border-color: #d97706; color: #92400e; }
+  .section-title.red    { border-color: #dc2626; color: #991b1b; }
+  .section-title.purple { border-color: #7c3aed; color: #5b21b6; }
+  .section-title.teal   { border-color: #0891b2; color: #155e75; }
+
+  hr.divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+
+  /* ── Metric cards ── */
+  .metric-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px; margin-bottom: 12px;
+  }
+  .m-card { background: #f9fafb; border-radius: 8px; padding: 10px 14px; }
+  .m-card .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase;
+                 letter-spacing: 0.05em; margin-bottom: 3px; }
+  .m-card .val { font-size: 20px; font-weight: 600; }
+  .val.ok   { color: #166534; }
+  .val.warn { color: #92400e; }
+  .val.crit { color: #991b1b; }
+  .val.info { color: #1e40af; }
+
+  /* ── Tables ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table thead th {
+    background: #f3f4f6; color: #374151; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .data-table tbody td {
+    padding: 7px 12px; border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover td { background: #f9fafb; }
+  .table-wrap {
+    border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+    margin-bottom: 16px;
   }
 
-  /* ─── Executive summary box ─── */
-  .summary-box { background: var(--card); border: 1px solid var(--border);
-                 border-radius: 8px; padding: 16px 20px; line-height: 1.7; color: var(--text); }
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+  }
+  .badge.ok   { background: #f0fdf4; color: #166534; }
+  .badge.warn { background: #fffbeb; color: #92400e; }
+  .badge.crit { background: #fef2f2; color: #991b1b; }
+  .badge.info { background: #eff6ff; color: #1e40af; }
 
-  /* ─── Cause-effect chain ─── */
+  /* ── Bar rows ── */
+  .bar-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; margin-bottom: 5px;
+  }
+  .bar-label { width: 130px; color: #6b7280; flex-shrink: 0; }
+  .bar-track {
+    flex: 1; height: 7px; background: #e5e7eb;
+    border-radius: 4px; overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .bar-fill.ok   { background: #16a34a; }
+  .bar-fill.warn { background: #d97706; }
+  .bar-fill.crit { background: #dc2626; }
+  .bar-val { width: 46px; text-align: right; font-weight: 600; flex-shrink: 0; }
+
+  /* ── Server blocks ── */
+  .server-block {
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .server-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    padding-bottom: 12px; margin-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .server-name {
+    font-weight: 600; font-size: 14px; color: #111827;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .server-name .icon { font-size: 16px; color: #6b7280; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 4px;
+    font-size: 10px; background: #f3f4f6; color: #6b7280;
+    border: 1px solid #e5e7eb; margin-left: 6px;
+  }
+  .status-row { display: flex; gap: 8px; }
+  .server-section-title {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #6b7280; margin-bottom: 8px;
+  }
+  .server-divider { border: none; border-top: 1px solid #f3f4f6; margin: 14px 0; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .finding-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 11px; color: #6b7280; margin-top: 6px;
+    padding-top: 8px; border-top: 1px solid #f3f4f6;
+  }
+  .finding-row:first-of-type { margin-top: 12px; }
+  .finding-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+  }
+  .finding-dot.crit { background: #dc2626; }
+  .finding-dot.warn { background: #d97706; }
+  .finding-dot.ok   { background: #16a34a; }
+
+  /* ── Summary box ── */
+  .summary-box {
+    background: #fffbeb; border-left: 3px solid #d97706;
+    border-radius: 0 8px 8px 0; padding: 14px 18px;
+    font-size: 13px; line-height: 1.7; color: #374151;
+    margin-bottom: 16px;
+  }
+
+  /* ── Cause-effect chain ── */
   .chain { list-style: none; }
   .chain li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-  .chain li .num { background: var(--purple); color: #fff;
-                   border-radius: 50%; width: 22px; height: 22px; min-width: 22px;
-                   display: flex; align-items: center; justify-content: center;
-                   font-size: 10px; font-weight: 800; }
-  .chain li .txt { background: #1a0d2e; border: 1px solid #3a1060;
-                   border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5; }
+  .chain-num {
+    background: #7c3aed; color: #fff; border-radius: 50%;
+    width: 22px; height: 22px; min-width: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .chain-txt {
+    background: #faf5ff; border: 1px solid #ede9fe;
+    border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5;
+  }
 
-  /* ─── Hypothesis cards ─── */
-  .hyp-card { background: var(--card); border: 1px solid var(--border);
-              border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
-  .hyp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .hyp-rank { background: var(--orange); color: #fff; border-radius: 50%;
-              width: 24px; height: 24px; min-width: 24px;
-              display: flex; align-items: center; justify-content: center;
-              font-size: 11px; font-weight: 800; }
-  .hyp-text { font-weight: 600; flex: 1; }
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 4px;
-           font-size: 10px; font-weight: 700; margin-left: auto; }
-  .badge-High   { background: #14532d; color: #4ade80; }
-  .badge-Medium { background: #431407; color: #fb923c; }
-  .badge-Low    { background: #1c1917; color: #a8a29e; }
-  .hyp-evidence { font-size: 11px; color: var(--muted); }
+  /* ── RCA hypothesis cards ── */
+  .hyp-card {
+    border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 10px;
+  }
+  .hyp-card.r1 { border-left: 3px solid #dc2626; }
+  .hyp-card.r2 { border-left: 3px solid #d97706; }
+  .hyp-card.r3 { border-left: 3px solid #1d4ed8; }
+  .hyp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .hyp-rank {
+    border-radius: 50%; width: 22px; height: 22px; min-width: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .r1 .hyp-rank { background: #fef2f2; color: #991b1b; }
+  .r2 .hyp-rank { background: #fffbeb; color: #92400e; }
+  .r3 .hyp-rank { background: #eff6ff; color: #1e40af; }
+  .hyp-text { font-weight: 600; flex: 1; font-size: 13px; }
+  .conf-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .conf-High   { background: #fef2f2; color: #991b1b; }
+  .conf-Medium { background: #fffbeb; color: #92400e; }
+  .conf-Low    { background: #eff6ff; color: #1e40af; }
+  .hyp-evidence { font-size: 11px; color: #6b7280; margin-top: 4px; }
 
-  /* ─── Findings table ─── */
-  .findings-table { width: 100%; border-collapse: collapse; }
-  .findings-table th { background: #111; color: var(--muted); font-size: 10px;
-                       text-transform: uppercase; letter-spacing: 1px;
-                       padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-  .findings-table td { padding: 7px 10px; border-bottom: 1px solid #1a1a2e;
-                       font-size: 11px; vertical-align: top; }
-  .findings-table tr:hover td { background: #181828; }
-  .sev-critical { color: #f87171; font-weight: 700; }
-  .sev-warn     { color: #fbbf24; font-weight: 700; }
-  .sev-info     { color: #60a5fa; }
+  /* ── Timeline ── */
+  .tl-item { display: flex; gap: 12px; margin-bottom: 8px; align-items: flex-start; }
+  .tl-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; min-width: 9px; }
+  .tl-dot.critical { background: #dc2626; }
+  .tl-dot.warn     { background: #d97706; }
+  .tl-dot.info     { background: #1d4ed8; }
+  .tl-ts { font-size: 11px; color: #6b7280; min-width: 175px; }
+  .tl-src {
+    display: inline-block; background: #f3f4f6; border: 1px solid #e5e7eb;
+    border-radius: 3px; padding: 1px 6px; font-size: 9px; color: #6b7280;
+    margin-right: 5px; vertical-align: middle;
+  }
+  .tl-desc { font-size: 12px; line-height: 1.5; }
 
-  /* ─── Timeline ─── */
-  .tl-item { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
-  .tl-dot  { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; min-width: 10px; }
-  .tl-dot.critical { background: #f87171; }
-  .tl-dot.warn     { background: #fbbf24; }
-  .tl-dot.info     { background: #60a5fa; }
-  .tl-ts   { font-size: 10px; color: var(--muted); min-width: 170px; }
-  .tl-desc { font-size: 11px; line-height: 1.5; }
-  .tl-src  { display: inline-block; background: #1e1e30; border: 1px solid var(--border);
-             border-radius: 3px; padding: 1px 6px; font-size: 9px;
-             color: var(--muted); margin-right: 6px; }
-
-  /* ─── Footer ─── */
-  .footer { text-align: center; color: var(--muted); font-size: 10px; margin-top: 40px; }
+  /* ── Footer ── */
+  .footer {
+    text-align: center; color: #9ca3af; font-size: 10px;
+    margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+  }
 </style>
 </head>
 <body>
+<div class="page">
 
 <!-- ══ HEADER ══ -->
-<div class="header">
-  <h1>AI-Driven Performance Test Analysis</h1>
-  <div class="sub">{{ company_name }} &nbsp;·&nbsp; Generated: {{ generated_at }} &nbsp;·&nbsp; Run ID: {{ run_id }}</div>
-  <div class="verdict-badge verdict-{{ verdict }}">{{ verdict }}</div>
-</div>
-
-<!-- ══ KPI SUMMARY ══ -->
-<div class="kpi-row">
-  <div class="kpi {% if finding_counts.total > 20 %}critical{% elif finding_counts.total > 5 %}warn{% else %}ok{% endif %}">
-    <div class="val">{{ finding_counts.total }}</div>
-    <div class="lbl">Total Findings</div>
+<div class="report-header">
+  <div class="title-block">
+    <p class="eyebrow">Performance test report — AI log mining</p>
+    <h1>{{ company_name }}</h1>
+    <p class="sub">Run ID: {{ run_id }} &nbsp;·&nbsp; Generated: {{ generated_at }}{% if duration_min %} &nbsp;·&nbsp; Duration: {{ duration_min }} min{% endif %}</p>
   </div>
-  <div class="kpi {% if finding_counts.threshold > 0 %}critical{% else %}ok{% endif %}">
-    <div class="val">{{ finding_counts.threshold }}</div>
-    <div class="lbl">SLA Breaches</div>
-  </div>
-  <div class="kpi {% if finding_counts.anomaly > 10 %}warn{% else %}info{% endif %}">
-    <div class="val">{{ finding_counts.anomaly }}</div>
-    <div class="lbl">Anomalies</div>
-  </div>
-  <div class="kpi {% if finding_counts.trend > 0 %}warn{% else %}ok{% endif %}">
-    <div class="val">{{ finding_counts.trend }}</div>
-    <div class="lbl">Degradation Trends</div>
+  <div>
+    <div class="verdict-badge verdict-{{ verdict }}">{{ verdict }}</div>
+    <p style="font-size:11px;color:#6b7280;margin-top:6px;text-align:right">
+      {{ finding_counts.total }} findings &nbsp;|&nbsp;
+      {{ finding_counts.threshold }} SLA breaches
+    </p>
   </div>
 </div>
 
-<!-- ══ EXECUTIVE SUMMARY ══ -->
+<!-- ══ TEST SUMMARY KPIs ══ -->
 <div class="section">
-  <div class="section-title">① Executive Summary</div>
-  <div class="summary-box">{{ summary }}</div>
+  <div class="section-title blue">① Test summary</div>
+  <div class="metric-grid">
+    <div class="m-card">
+      <div class="lbl">Total findings</div>
+      <div class="val {% if finding_counts.total > 20 %}crit{% elif finding_counts.total > 5 %}warn{% else %}ok{% endif %}">
+        {{ finding_counts.total }}
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">SLA breaches</div>
+      <div class="val {% if finding_counts.threshold > 0 %}crit{% else %}ok{% endif %}">
+        {{ finding_counts.threshold }}
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">Anomalies</div>
+      <div class="val {% if finding_counts.anomaly > 10 %}warn{% else %}info{% endif %}">
+        {{ finding_counts.anomaly }}
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">Trends</div>
+      <div class="val {% if finding_counts.trend > 0 %}warn{% else %}ok{% endif %}">
+        {{ finding_counts.trend }}
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">Patterns</div>
+      <div class="val {% if finding_counts.pattern > 0 %}warn{% else %}ok{% endif %}">
+        {{ finding_counts.pattern }}
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- ══ LEADING INDICATOR ══ -->
-{% if leading_indicator %}
+<!-- ══ LR TRANSACTION RESULTS ══ -->
+{% if lr_rows %}
 <div class="section">
-  <div class="section-title">② Leading Indicator</div>
-  <div class="summary-box">
-    <strong style="color:#fbbf24;">{{ leading_indicator.metric_name }}</strong>
-    &nbsp;—&nbsp; <span style="color:var(--muted);">{{ leading_indicator.source }}</span>
-    &nbsp;|&nbsp; First seen: {{ leading_indicator.timestamp }}
-    <br><br>{{ leading_indicator.description }}
+  <div class="section-title green">② LoadRunner transaction results</div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Transaction</th>
+          <th>Avg (s)</th>
+          <th>Min (s)</th>
+          <th>P{{ lr_percentile }} (s)</th>
+          <th>P99 (s)</th>
+          <th>Max (s)</th>
+          <th>Passed</th>
+          <th>Failed</th>
+          <th>TPS</th>
+          <th>SLA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in lr_rows %}
+        <tr>
+          <td><strong>{{ r.transaction }}</strong></td>
+          <td>{{ r.avg if r.avg is not none else "—" }}</td>
+          <td>{{ r.min if r.min is not none else "—" }}</td>
+          <td>{{ r["p" ~ lr_percentile] if r["p" ~ lr_percentile] is not none else (r.p90 if r.p90 is not none else "—") }}</td>
+          <td>{{ r.p99 if r.p99 is not none else "—" }}</td>
+          <td>{{ r.max if r.max is not none else "—" }}</td>
+          <td>{{ r.passed if r.passed is not none else "—" }}</td>
+          <td>{{ r.failed if r.failed is not none else "—" }}</td>
+          <td>{{ r.tps if r.tps is not none else "—" }}</td>
+          <td><span class="badge {{ r.sev }}">{{ r.sev | upper }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endif %}
 
-<!-- ══ CAUSE-EFFECT CHAIN ══ -->
-{% if cause_effect_chain %}
+<hr class="divider">
+
+<!-- ══ SERVER UTILIZATION ══ -->
+{% if server_stats %}
 <div class="section">
-  <div class="section-title">③ Cause → Effect Chain</div>
-  <ol class="chain">
+  <div class="section-title amber">③ Server resource utilization</div>
+
+  {% set app_servers = server_stats | selectattr("source", "ne", "SQL") | list %}
+  {% set db_servers  = server_stats | selectattr("source", "eq", "SQL") | list %}
+
+  {% if app_servers | length >= 2 %}
+  <div class="two-col">
+    {% for s in app_servers %}
+    <div class="server-block">
+      <div class="server-header">
+        <div class="server-name">
+          &#9635; {{ s.name }}
+          {% for t in s.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+        </div>
+        <div class="status-row">
+          {% if s.sev_counts.crit > 0 %}
+            <span class="badge crit">{{ s.sev_counts.crit }} critical</span>
+          {% endif %}
+          {% if s.sev_counts.warn > 0 %}
+            <span class="badge warn">{{ s.sev_counts.warn }} warning</span>
+          {% endif %}
+          {% if s.sev_counts.crit == 0 and s.sev_counts.warn == 0 %}
+            <span class="badge ok">healthy</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {% for section in s.sections %}
+        <p class="server-section-title">{{ section.title }}</p>
+        <div class="metric-grid">
+          {% for m in section.metrics %}
+          <div class="m-card">
+            <div class="lbl">{{ m.label }}</div>
+            <div class="val {{ m.sev }}">{{ m.value }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% if section.bars %}
+        <div style="margin-top:8px">
+          {% for b in section.bars %}
+          <div class="bar-row">
+            <span class="bar-label">{{ b.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill {{ b.sev }}" style="width:{{ [b.pct, 100] | min }}%"></div>
+            </div>
+            <span class="bar-val">{{ b.val }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if not loop.last %}<hr class="server-divider">{% endif %}
+      {% endfor %}
+
+      {% for f in s.findings %}
+      <div class="finding-row">
+        <div class="finding-dot {{ f.sev }}"></div>
+        <span>{{ f.text }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% for s in app_servers %}
+  <div class="server-block">
+    <div class="server-header">
+      <div class="server-name">&#9635; {{ s.name }}
+        {% for t in s.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+      </div>
+      <div class="status-row">
+        {% if s.sev_counts.crit > 0 %}<span class="badge crit">{{ s.sev_counts.crit }} critical</span>{% endif %}
+        {% if s.sev_counts.warn > 0 %}<span class="badge warn">{{ s.sev_counts.warn }} warning</span>{% endif %}
+        {% if s.sev_counts.crit == 0 and s.sev_counts.warn == 0 %}<span class="badge ok">healthy</span>{% endif %}
+      </div>
+    </div>
+    {% for section in s.sections %}
+      <p class="server-section-title">{{ section.title }}</p>
+      <div class="metric-grid">
+        {% for m in section.metrics %}
+        <div class="m-card"><div class="lbl">{{ m.label }}</div><div class="val {{ m.sev }}">{{ m.value }}</div></div>
+        {% endfor %}
+      </div>
+      {% if section.bars %}
+      <div style="margin-top:8px">
+        {% for b in section.bars %}
+        <div class="bar-row">
+          <span class="bar-label">{{ b.label }}</span>
+          <div class="bar-track"><div class="bar-fill {{ b.sev }}" style="width:{{ [b.pct, 100] | min }}%"></div></div>
+          <span class="bar-val">{{ b.val }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if not loop.last %}<hr class="server-divider">{% endif %}
+    {% endfor %}
+    {% for f in s.findings %}
+    <div class="finding-row"><div class="finding-dot {{ f.sev }}"></div><span>{{ f.text }}</span></div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% for s in db_servers %}
+  <div class="server-block">
+    <div class="server-header">
+      <div class="server-name">&#9650; {{ s.name }}
+        {% for t in s.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+      </div>
+      <div class="status-row">
+        {% if s.sev_counts.crit > 0 %}<span class="badge crit">{{ s.sev_counts.crit }} critical</span>{% endif %}
+        {% if s.sev_counts.warn > 0 %}<span class="badge warn">{{ s.sev_counts.warn }} warning</span>{% endif %}
+        {% if s.sev_counts.crit == 0 and s.sev_counts.warn == 0 %}<span class="badge ok">healthy</span>{% endif %}
+      </div>
+    </div>
+    {% for section in s.sections %}
+      <p class="server-section-title">{{ section.title }}</p>
+      <div class="metric-grid">
+        {% for m in section.metrics %}
+        <div class="m-card"><div class="lbl">{{ m.label }}</div><div class="val {{ m.sev }}">{{ m.value }}</div></div>
+        {% endfor %}
+      </div>
+      {% if section.bars %}
+      <div style="margin-top:8px">
+        {% for b in section.bars %}
+        <div class="bar-row">
+          <span class="bar-label">{{ b.label }}</span>
+          <div class="bar-track"><div class="bar-fill {{ b.sev }}" style="width:{{ [b.pct, 100] | min }}%"></div></div>
+          <span class="bar-val">{{ b.val }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if not loop.last %}<hr class="server-divider">{% endif %}
+    {% endfor %}
+    {% for f in s.findings %}
+    <div class="finding-row"><div class="finding-dot {{ f.sev }}"></div><span>{{ f.text }}</span></div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+</div>
+{% endif %}
+
+<hr class="divider">
+
+<!-- ══ ANOMALY & TREND FINDINGS ══ -->
+{% if raw_findings.threshold or raw_findings.trend %}
+<div class="section">
+  <div class="section-title teal">④ Anomaly &amp; trend findings</div>
+
+  {% if raw_findings.threshold %}
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px">SLA &amp; threshold breaches</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th>Actual</th><th>Threshold</th><th>Breaches</th><th>Severity</th></tr>
+      </thead>
+      <tbody>
+        {% for f in raw_findings.threshold %}
+        <tr>
+          <td>{{ f.metric_name }}</td>
+          <td><strong>{{ f.actual_value }}</strong></td>
+          <td>{{ f.threshold_value }}</td>
+          <td>{{ f.breach_count }}</td>
+          <td><span class="badge {{ f.severity }}">{{ f.severity | upper }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if raw_findings.trend %}
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px;margin-top:14px">Degradation trends</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th>Direction</th><th>Slope/min</th><th>R²</th><th>Severity</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {% for f in raw_findings.trend %}
+        <tr>
+          <td>{{ f.metric_name }}</td>
+          <td>{{ f.direction }}</td>
+          <td>{{ f.slope_per_min }}</td>
+          <td>{{ f.r_squared }}</td>
+          <td><span class="badge {{ f.severity }}">{{ f.severity | upper }}</span></td>
+          <td style="color:#6b7280">{{ f.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ══ CORRELATION TIMELINE ══ -->
+{% if timeline.events %}
+<div class="section">
+  <div class="section-title teal">⑤ Event correlation timeline</div>
+  <div style="border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+    {% for e in timeline.events[:25] %}
+    <div class="tl-item">
+      <div class="tl-dot {{ e.severity }}"></div>
+      <div class="tl-ts">{{ e.timestamp[:19] if e.timestamp else "—" }}</div>
+      <div class="tl-desc">
+        <span class="tl-src">{{ e.source }}</span>
+        <strong>{{ e.metric_name }}</strong>
+        {% if e.description %} — {{ e.description[:120] }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<hr class="divider">
+
+<!-- ══ RCA ══ -->
+<div class="section">
+  <div class="section-title red">⑥ Root cause analysis</div>
+
+  {% if summary %}
+  <div class="summary-box">{{ summary }}</div>
+  {% endif %}
+
+  {% if leading_indicator %}
+  <p style="font-size:12px;color:#374151;margin-bottom:14px">
+    <strong>Leading indicator:</strong>
+    <span style="color:#991b1b">{{ leading_indicator.metric_name }}</span>
+    &nbsp;—&nbsp; {{ leading_indicator.source }}
+    &nbsp;|&nbsp; first seen: {{ leading_indicator.timestamp }}
+  </p>
+  {% endif %}
+
+  {% if cause_effect_chain %}
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:8px">Cause → effect chain</p>
+  <ol class="chain" style="margin-bottom:16px">
     {% for step in cause_effect_chain %}
     <li>
-      <div class="num">{{ loop.index }}</div>
-      <div class="txt">{{ step }}</div>
+      <div class="chain-num">{{ loop.index }}</div>
+      <div class="chain-txt">{{ step }}</div>
     </li>
     {% endfor %}
   </ol>
-</div>
-{% endif %}
+  {% endif %}
 
-<!-- ══ ROOT CAUSE HYPOTHESES ══ -->
-{% if scored_hypotheses %}
-<div class="section">
-  <div class="section-title">④ Root Cause Hypotheses (Ranked)</div>
+  {% if scored_hypotheses %}
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:10px">Ranked hypotheses</p>
   {% for h in scored_hypotheses %}
-  <div class="hyp-card">
+  <div class="hyp-card r{{ [loop.index, 3] | min }}">
     <div class="hyp-header">
       <div class="hyp-rank">{{ loop.index }}</div>
       <div class="hyp-text">{{ h.hypothesis }}</div>
-      <span class="badge badge-{{ h.confidence }}">{{ h.confidence }}</span>
+      <span class="conf-badge conf-{{ h.confidence }}">{{ h.confidence }}</span>
     </div>
     <div class="hyp-evidence">
       <strong>Evidence:</strong> {{ h.evidence }}
-      &nbsp;|&nbsp; <strong>Sources:</strong> {{ h.sources_cited | join(", ") }}
+      {% if h.sources_cited %}&nbsp;|&nbsp; <strong>Sources:</strong> {{ h.sources_cited | join(", ") }}{% endif %}
     </div>
   </div>
   {% endfor %}
-</div>
-{% endif %}
-
-<!-- ══ SLA / THRESHOLD BREACHES ══ -->
-{% if raw_findings.threshold %}
-<div class="section">
-  <div class="section-title">⑤ SLA &amp; Threshold Breaches</div>
-  <table class="findings-table">
-    <thead>
-      <tr>
-        <th>Rule</th><th>Metric</th><th>Threshold</th><th>Actual</th>
-        <th>Breaches</th><th>Severity</th><th>Business KPI</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for f in raw_findings.threshold %}
-      <tr>
-        <td>{{ f.rule_name }}</td>
-        <td>{{ f.metric_name }}</td>
-        <td>{{ f.threshold }}</td>
-        <td><strong>{{ f.actual }}</strong></td>
-        <td>{{ f.breach_count }}</td>
-        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
-        <td>{{ f.business_kpi }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-<!-- ══ TREND FINDINGS ══ -->
-{% if raw_findings.trend %}
-<div class="section">
-  <div class="section-title">⑥ Degradation Trends</div>
-  <table class="findings-table">
-    <thead>
-      <tr><th>Metric</th><th>Direction</th><th>Slope/min</th>
-          <th>p-value</th><th>R²</th><th>Severity</th><th>Description</th></tr>
-    </thead>
-    <tbody>
-      {% for f in raw_findings.trend %}
-      <tr>
-        <td>{{ f.metric_name }}</td>
-        <td>{{ f.direction }}</td>
-        <td>{{ f.slope_per_min }}</td>
-        <td>{{ f.p_value }}</td>
-        <td>{{ f.r_squared }}</td>
-        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
-        <td>{{ f.description }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-<!-- ══ PATTERN FINDINGS ══ -->
-{% if raw_findings.pattern %}
-<div class="section">
-  <div class="section-title">⑦ Log Patterns Detected</div>
-  <table class="findings-table">
-    <thead>
-      <tr><th>Pattern</th><th>Count</th><th>Severity</th>
-          <th>Method</th><th>Description</th><th>Example</th></tr>
-    </thead>
-    <tbody>
-      {% for f in raw_findings.pattern %}
-      <tr>
-        <td>{{ f.pattern_name }}</td>
-        <td>{{ f.count }}</td>
-        <td class="sev-{{ f.severity }}">{{ f.severity | upper }}</td>
-        <td>{{ f.method }}</td>
-        <td>{{ f.description }}</td>
-        <td style="font-family:monospace;font-size:10px;max-width:260px;
-                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          {{ f.examples[0] if f.examples else "" }}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-<!-- ══ UNIFIED TIMELINE (top 30 events) ══ -->
-{% if timeline.events %}
-<div class="section">
-  <div class="section-title">⑧ Unified Event Timeline (top 30)</div>
-  {% for e in timeline.events[:30] %}
-  <div class="tl-item">
-    <div class="tl-dot {{ e.severity }}"></div>
-    <div class="tl-ts">{{ e.timestamp[:19] if e.timestamp else "—" }}</div>
-    <div class="tl-desc">
-      <span class="tl-src">{{ e.source }}</span>
-      <strong>{{ e.metric_name }}</strong> — {{ e.description[:120] }}
-    </div>
+  {% else %}
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;color:#6b7280;font-size:12px">
+    No AI hypotheses available. Configure <code>OPENAI_API_KEY</code> in your .env file to enable causal analysis.
   </div>
-  {% endfor %}
+  {% endif %}
+
+  {% if raw_findings.pattern %}
+  <p style="font-size:11px;font-weight:600;color:#374151;margin:16px 0 8px">Log patterns detected</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Pattern</th><th>Count</th><th>Severity</th><th>Method</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {% for f in raw_findings.pattern %}
+        <tr>
+          <td>{{ f.pattern_name }}</td>
+          <td>{{ f.count }}</td>
+          <td><span class="badge {{ f.severity }}">{{ f.severity | upper }}</span></td>
+          <td>{{ f.method }}</td>
+          <td style="color:#6b7280">{{ f.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </div>
-{% endif %}
 
 <!-- ══ FOOTER ══ -->
 <div class="footer">
-  Generated by AI-Driven PT Log Mining Pipeline &nbsp;·&nbsp; {{ company_name }} &nbsp;·&nbsp; {{ generated_at }}
+  Generated by AI-Driven PT Log Mining Pipeline &nbsp;·&nbsp;
+  {{ company_name }} &nbsp;·&nbsp; {{ generated_at }}
 </div>
 
+</div><!-- end .page -->
 </body>
 </html>
