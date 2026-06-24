@@ -282,14 +282,23 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
 def _build_lr_stats(df: pd.DataFrame) -> list[dict]:
     """Build LR transaction rows from the normalised dataframe."""
     if df is None or df.empty:
+        log.warning("[generator] _build_lr_stats: combined_df is None or empty")
         return []
     lr = df[df["source"] == "loadrunner"].copy()
     if lr.empty:
+        log.warning(f"[generator] _build_lr_stats: no 'loadrunner' rows. "
+                    f"Sources present: {df['source'].unique().tolist()}")
         return []
+
+    log.info(f"[generator] LR rows: {len(lr)}, "
+             f"unique metric_names: {lr['metric_name'].unique().tolist()}, "
+             f"unique tx: {lr['transaction_name'].unique().tolist()}")
 
     rows = []
     for tx, grp in lr.groupby("transaction_name", sort=False):
-        if not tx or tx == "unknown":
+        # Skip empty/unknown transaction names, but treat numeric-string NaN as fixable
+        if not tx or tx in ("unknown", "nan"):
+            log.warning(f"[generator] Skipping LR group with tx='{tx}'")
             continue
         def v(patterns):
             for p in patterns:

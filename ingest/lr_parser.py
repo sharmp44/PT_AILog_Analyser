@@ -263,6 +263,14 @@ def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
                 "phase":            "steady",
             })
 
+    log.info(f"[lr_parser] _parse_results_csv: produced {len(rows)} rows from {path.name}")
+    if rows:
+        sample_tx = list({r["transaction_name"] for r in rows})[:5]
+        sample_metrics = list({r["metric_name"] for r in rows})
+        log.info(f"[lr_parser]   transactions: {sample_tx}, metrics: {sample_metrics}")
+    else:
+        log.warning(f"[lr_parser]   EMPTY result — CSV columns after normalise: {raw.columns.tolist()}")
+        log.warning(f"[lr_parser]   First 3 rows of raw CSV:\n{raw.head(3).to_string()}")
     return pd.DataFrame(rows)
 
 

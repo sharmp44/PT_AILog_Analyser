@@ -253,6 +253,20 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
     with Store(db_path) as store:
         store.insert(combined.drop(columns=_extra_cols))
 
+    # ── LR debug: log what we have ───────────────────────────────────────────
+    lr_debug = combined[combined["source"] == "loadrunner"]
+    log.info(f"[app] LR rows after normalise+tag: {len(lr_debug)}, "
+             f"unique tx: {lr_debug['transaction_name'].nunique() if not lr_debug.empty else 0}, "
+             f"tx names: {lr_debug['transaction_name'].unique().tolist() if not lr_debug.empty else []}")
+    if lr_debug.empty:
+        st.warning("⚠️ No LoadRunner data found in combined dataframe — "
+                   "LR transaction table will be empty in the report. "
+                   "Check that the LR CSV was parsed correctly.")
+    else:
+        st.info(f"✅ LR data: {len(lr_debug)} rows, "
+                f"{lr_debug['transaction_name'].nunique()} transactions: "
+                f"{', '.join(str(t) for t in lr_debug['transaction_name'].unique()[:5])}")
+
     # ── Time Window Filter ────────────────────────────────────────────────────
     if time_window and time_window.get("enabled"):
         tw_start = pd.Timestamp(time_window["start"], tz="UTC")
