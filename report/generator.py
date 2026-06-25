@@ -185,13 +185,13 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
             })
 
         elif source == "sql":
-            cpu     = _metric_stat(grp, ["processor.*%", "% processor", "cpu"], "max")
-            mem_pct = _metric_stat(grp, ["memory.*%", "% committed"], "max")
-            bch     = _metric_stat(grp, ["buffer cache hit", "buffer.*hit.*ratio"], "min")
-            ple     = _metric_stat(grp, ["page life expectancy", "ple"], "min")
+            cpu     = _metric_stat(grp, ["processor.*%", "% processor", "cpu_pct", "cpu"], "max")
+            mem_pct = _metric_stat(grp, ["memory.*%", "% committed", "mem_pct"], "max")
+            bch     = _metric_stat(grp, ["buffer.cache.hit", "buffer.*hit.*ratio", "buffer_cache_hit"], "min")
+            ple     = _metric_stat(grp, ["page.life.expectancy", "page_life_expectancy", "ple"], "min")
             dlocks  = _metric_stat(grp, ["deadlock"], "max")
-            locks   = _metric_stat(grp, ["lock waits/sec", "lock.*wait"], "max")
-            blocked = _metric_stat(grp, ["processes blocked", "blocked proc"], "max")
+            locks   = _metric_stat(grp, ["lock.waits", "lock_wait"], "max")
+            blocked = _metric_stat(grp, ["processes.blocked", "processes_blocked", "blocked.proc"], "max")
             recomp  = _metric_stat(grp, ["recompilations/sec", "sql.*recompil"], "max")
 
             cpu_thresh   = sla.get("cpu_pct", 85)
