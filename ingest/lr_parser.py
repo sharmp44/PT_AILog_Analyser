@@ -205,11 +205,13 @@ def _parse_results_csv(path: Path, cfg: dict) -> pd.DataFrame:
         log.info(f"[lr_parser] Header detected at row {header_row} (skipping {header_row} rows)")
     raw = pd.read_csv(path, skiprows=header_row, low_memory=False)
     raw.columns = [_normalise_col(c) for c in raw.columns]
+    log.info(f"[lr_parser] Columns after normalise (header_row={header_row}): {raw.columns.tolist()}")
 
     rows = []
-    metrics = ["avg_response_sec", "p50_response_sec", "p75_response_sec",
+    metrics = ["avg_response_sec", "min_response_sec",
+               "p50_response_sec", "p75_response_sec",
                "p90_response_sec", "p95_response_sec", "p99_response_sec",
-               "max_response_sec", "tps", "fail_count"]
+               "max_response_sec", "tps", "pass_count", "fail_count", "fail_rate"]
 
     # Which percentile to use for SLA severity (configured in sidebar, default 90)
     sla_pct     = cfg.get("sla", {}).get("lr_percentile", 90)
