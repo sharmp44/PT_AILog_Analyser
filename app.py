@@ -286,14 +286,17 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
         tw_start = pd.Timestamp(time_window["start"], tz="UTC")
         tw_end   = pd.Timestamp(time_window["end"],   tz="UTC")
         before   = len(combined)
-        combined = combined[
-            (combined["timestamp"] >= tw_start) &
-            (combined["timestamp"] <= tw_end)
-        ].copy()
+
+        # LR aggregated CSVs have no real per-row timestamps (set to utcnow at parse time)
+        # — always keep them so the LR summary is never silently dropped by the filter
+        lr_mask  = combined["source"] == "loadrunner"
+        ts_mask  = (combined["timestamp"] >= tw_start) & (combined["timestamp"] <= tw_end)
+        combined = combined[lr_mask | ts_mask].copy()
+
         after = len(combined)
-        if combined.empty:
+        if combined[~lr_mask].empty:
             st.error(
-                f"❌ Time window filter removed all {before} events. "
+                f"❌ Time window filter removed all non-LR events. "
                 f"No data between {tw_start.strftime('%H:%M')} and {tw_end.strftime('%H:%M')}. "
                 "Try widening the window or check your log timestamps."
             )

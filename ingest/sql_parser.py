@@ -58,7 +58,8 @@ _SQL_COUNTER_MAP: list[tuple[str, str, str]] = [
     ("active temp tables",              "sql_active_temp_tables",        "count"),
 ]
 
-_IS_SQL_HDR = re.compile(r"sqlserver:", re.IGNORECASE)
+# Match default instance (SQLServer:) AND named instances (MSSQL$instancename:)
+_IS_SQL_HDR = re.compile(r"(sqlserver:|mssql\$[^:]*:)", re.IGNORECASE)
 
 
 def is_sql_perfmon(path: Path) -> bool:

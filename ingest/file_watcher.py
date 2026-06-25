@@ -75,7 +75,7 @@ def detect_type(path: Path) -> str | None:
             content = (first + second).lower()
             if "#software: microsoft internet information" in content:
                 return "iis"
-            if "sqlserver:" in content:
+            if "sqlserver:" in content or "mssql$" in content:
                 return "sql"
             if "notify:" in content or "action.c" in content:
                 return "lr"
