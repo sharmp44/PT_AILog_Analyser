@@ -103,6 +103,10 @@ def _normalise_col(c: str) -> str:
     result = _COL_ALIASES.get(cleaned)
     if result:
         return result
+    # Fuzzy TPS fallback: any column containing "tps" maps to tps
+    # Handles typos like "Acghived TPS", "Achieved_TPS", etc.
+    if "tps" in cleaned:
+        return "tps"
     return c.strip().lower().replace(" ", "_")
 
 
