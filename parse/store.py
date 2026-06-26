@@ -31,9 +31,51 @@ CREATE TABLE IF NOT EXISTS events (
     transaction_name VARCHAR,
     vuser_id         VARCHAR,
     phase            VARCHAR,
-    run_id           VARCHAR
+    run_id           VARCHAR,
+    -- IIS extended fields (NULL for non-IIS sources)
+    substatus        INTEGER,
+    win32_status     INTEGER,
+    uri_query        VARCHAR,
+    bytes_recv       DOUBLE,
+    bytes_sent       DOUBLE,
+    user_agent       VARCHAR,
+    username         VARCHAR,
+    s_ip             VARCHAR,
+    s_port           VARCHAR,
+    sitename         VARCHAR
 );
 """
+
+# Canonical column list — every DataFrame inserted must provide exactly these columns
+# (extras are dropped, missing ones are filled with NULL/0/empty string before insert)
+_SCHEMA_COLS: list[tuple[str, object]] = [
+    ("timestamp",        None),
+    ("source",           ""),
+    ("metric_name",      ""),
+    ("value",            0.0),
+    ("unit",             ""),
+    ("severity",         "info"),
+    ("raw_line",         ""),
+    ("uri_stem",         ""),
+    ("method",           ""),
+    ("status_code",      0),
+    ("client_ip",        ""),
+    ("transaction_name", ""),
+    ("vuser_id",         ""),
+    ("phase",            ""),
+    ("run_id",           ""),
+    ("substatus",        0),
+    ("win32_status",     0),
+    ("uri_query",        ""),
+    ("bytes_recv",       0.0),
+    ("bytes_sent",       0.0),
+    ("user_agent",       ""),
+    ("username",         ""),
+    ("s_ip",             ""),
+    ("s_port",           ""),
+    ("sitename",         ""),
+]
+_SCHEMA_COL_NAMES = [c for c, _ in _SCHEMA_COLS]
 
 _CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_ts_metric ON events (timestamp, metric_name);
@@ -48,17 +90,60 @@ class Store:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._con = duckdb.connect(str(self.db_path))
         self._con.execute(_CREATE_TABLE)
+        self._migrate_schema()
         self._con.execute(_CREATE_INDEX)
         log.info(f"[store] Connected to {self.db_path}")
+
+    def _migrate_schema(self) -> None:
+        """Add any new columns that exist in _SCHEMA_COLS but not in the table yet.
+
+        This keeps the on-disk DuckDB compatible when new fields are added to the
+        schema without requiring a full database recreate.
+        """
+        try:
+            existing = {
+                row[0].lower()
+                for row in self._con.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'events'"
+                ).fetchall()
+            }
+            _type_map = {
+                int:   "INTEGER",
+                float: "DOUBLE",
+                str:   "VARCHAR",
+                type(None): "VARCHAR",
+            }
+            for col, default in _SCHEMA_COLS:
+                if col.lower() not in existing:
+                    sql_type = _type_map.get(type(default), "VARCHAR")
+                    self._con.execute(f"ALTER TABLE events ADD COLUMN {col} {sql_type}")
+                    log.info(f"[store] Migrated: added column '{col}' ({sql_type})")
+        except Exception as exc:
+            log.warning(f"[store] Schema migration warning: {exc}")
 
     # ── Write ────────────────────────────────────────────────────────────────
 
     def insert(self, df: pd.DataFrame) -> int:
-        """Insert a normalised DataFrame into the events table."""
+        """Insert a normalised DataFrame into the events table.
+
+        The DataFrame may contain extra columns (e.g. IIS-specific fields like
+        uri_query, substatus) or be missing optional columns (e.g. LoadRunner
+        rows have no uri_stem). We align it to the schema before inserting so
+        the column count always matches regardless of source type.
+        """
         if df.empty:
             return 0
-        self._con.execute("INSERT INTO events SELECT * FROM df")
-        count = len(df)
+
+        # Build an aligned copy: add missing schema cols with defaults, drop extras
+        aligned = df.copy()
+        for col, default in _SCHEMA_COLS:
+            if col not in aligned.columns:
+                aligned[col] = default
+        aligned = aligned[_SCHEMA_COL_NAMES]  # exact schema order, no extras
+
+        self._con.execute("INSERT INTO events SELECT * FROM aligned")
+        count = len(aligned)
         log.info(f"[store] Inserted {count} rows")
         return count
 
