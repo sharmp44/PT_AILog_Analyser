@@ -14,6 +14,7 @@ Returns a CausalAnalysis dict.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, asdict
 
 from Utils.logger import get_logger
@@ -124,8 +125,12 @@ Evidence:
             max_tokens=cfg.get("openai", {}).get("max_tokens", 4096),
             temperature=0.2,
         )
-        raw = response.choices[0].message.content.strip()
-        data = json.loads(raw)
+        raw = (response.choices[0].message.content or "").strip()
+        # Strip markdown code fences that GPT-4o often wraps around JSON
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```\s*$", "", raw).strip()
+        data = json.loads(raw) if raw else {}
     except Exception as exc:
         log.error(f"[causal_agent] OpenAI call failed: {exc}")
         return _FALLBACK_ANALYSIS.to_dict()

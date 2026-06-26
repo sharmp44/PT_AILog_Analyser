@@ -163,8 +163,12 @@ Log lines:
             max_tokens=cfg.get("openai", {}).get("max_tokens", 2048),
             temperature=0.1,
         )
-        raw_json = response.choices[0].message.content.strip()
-        items = json.loads(raw_json)
+        raw_json = (response.choices[0].message.content or "").strip()
+        # Strip markdown code fences that GPT-4o often wraps around JSON
+        if raw_json.startswith("```"):
+            raw_json = re.sub(r"^```(?:json)?\s*", "", raw_json)
+            raw_json = re.sub(r"\s*```\s*$", "", raw_json).strip()
+        items = json.loads(raw_json) if raw_json else []
     except Exception as exc:
         log.error(f"[pattern_agent] OpenAI call failed: {exc}")
         return []
