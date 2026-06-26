@@ -134,8 +134,8 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
 
         elif source in ("perfmon", "blg"):
             cpu  = _metric_stat(grp, ["processor.*%", "% processor", "cpu"], "max")
-            mem  = _metric_stat(grp, ["memory.*%", "% committed", "available mbytes"], "max")
-            dq   = _metric_stat(grp, ["disk queue", "current disk queue"], "max")
+            mem  = _metric_stat(grp, ["mem_committed_pct", "memory.*%", "% committed", "mem_available_mb", "available.mbytes"], "max")
+            dq   = _metric_stat(grp, ["disk_queue_len", "disk.queue", "current.disk.queue"], "max")
             net  = _metric_stat(grp, ["bytes total/sec", "network.*bytes", "bytes.*sec"], "max")
 
             cpu_warn = sla.get("cpu_pct", 85)
