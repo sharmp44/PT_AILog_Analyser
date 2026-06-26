@@ -88,6 +88,10 @@
   }
   .data-table tbody tr:last-child td { border-bottom: none; }
   .data-table tbody tr:hover td { background: var(--card2); }
+  .data-table tbody tr.crit td:first-child { border-left: 3px solid #ef4444; }
+  .data-table tbody tr.warn td:first-child { border-left: 3px solid #f59e0b; }
+  .data-table tbody tr.crit td { color: #fca5a5; }
+  .data-table tbody tr.warn td { color: #fde68a; }
   .table-wrap {
     border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
     margin-bottom: 16px;
@@ -409,6 +413,7 @@
 
       {% for section in s.sections %}
         <p class="server-section-title">{{ section.title }}</p>
+        {% if section.metrics %}
         <div class="metric-grid">
           {% for m in section.metrics %}
           <div class="m-card">
@@ -417,6 +422,7 @@
           </div>
           {% endfor %}
         </div>
+        {% endif %}
         {% if section.bars %}
         <div style="margin-top:8px">
           {% for b in section.bars %}
@@ -428,6 +434,19 @@
             <span class="bar-val">{{ b.val }}</span>
           </div>
           {% endfor %}
+        </div>
+        {% endif %}
+        {% if section.table %}
+        <div class="table-wrap" style="margin-top:10px">
+          {% if section.table.caption %}<p style="font-size:10px;color:#6B7280;margin:0 0 4px 0">{{ section.table.caption }}</p>{% endif %}
+          <table class="data-table" style="font-size:11px">
+            <thead><tr>{% for h in section.table.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in section.table.rows %}
+              <tr class="{{ row.sev }}">{% for cell in row.cells %}<td>{{ cell }}</td>{% endfor %}</tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
         {% endif %}
         {% if not loop.last %}<hr class="server-divider">{% endif %}
@@ -452,11 +471,13 @@
     </div>
     {% for section in s.sections %}
       <p class="server-section-title">{{ section.title }}</p>
+      {% if section.metrics %}
       <div class="metric-grid">
         {% for m in section.metrics %}
         <div class="m-card"><div class="lbl">{{ m.label }}</div><div class="val {{ m.sev }}">{{ m.value }}</div></div>
         {% endfor %}
       </div>
+      {% endif %}
       {% if section.bars %}
       <div style="margin-top:8px">
         {% for b in section.bars %}
@@ -466,6 +487,19 @@
           <span class="bar-val">{{ b.val }}</span>
         </div>
         {% endfor %}
+      </div>
+      {% endif %}
+      {% if section.table %}
+      <div class="table-wrap" style="margin-top:10px">
+        {% if section.table.caption %}<p style="font-size:10px;color:#6B7280;margin:0 0 4px 0">{{ section.table.caption }}</p>{% endif %}
+        <table class="data-table" style="font-size:11px">
+          <thead><tr>{% for h in section.table.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in section.table.rows %}
+            <tr class="{{ row.sev }}">{% for cell in row.cells %}<td>{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
       {% endif %}
       {% if not loop.last %}<hr class="server-divider">{% endif %}
@@ -489,11 +523,13 @@
     </div>
     {% for section in s.sections %}
       <p class="server-section-title">{{ section.title }}</p>
+      {% if section.metrics %}
       <div class="metric-grid">
         {% for m in section.metrics %}
         <div class="m-card"><div class="lbl">{{ m.label }}</div><div class="val {{ m.sev }}">{{ m.value }}</div></div>
         {% endfor %}
       </div>
+      {% endif %}
       {% if section.bars %}
       <div style="margin-top:8px">
         {% for b in section.bars %}
@@ -503,6 +539,19 @@
           <span class="bar-val">{{ b.val }}</span>
         </div>
         {% endfor %}
+      </div>
+      {% endif %}
+      {% if section.table %}
+      <div class="table-wrap" style="margin-top:10px">
+        {% if section.table.caption %}<p style="font-size:10px;color:#6B7280;margin:0 0 4px 0">{{ section.table.caption }}</p>{% endif %}
+        <table class="data-table" style="font-size:11px">
+          <thead><tr>{% for h in section.table.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in section.table.rows %}
+            <tr class="{{ row.sev }}">{% for cell in row.cells %}<td>{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
       {% endif %}
       {% if not loop.last %}<hr class="server-divider">{% endif %}

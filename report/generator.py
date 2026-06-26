@@ -87,48 +87,218 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
         bars = []
 
         if source == "iis":
-            total_req = len(grp)
-            # Use status_code column if available (IIS parser stores it there)
+            # ── Base counts ──────────────────────────────────────────────────
+            # De-dup: use only http_status rows for counting (1 row per request)
+            hs_grp = grp[grp["metric_name"] == "http_status"].copy()
+            total_req = len(hs_grp) if not hs_grp.empty else len(grp)
+
             if "status_code" in grp.columns:
-                sc = pd.to_numeric(grp["status_code"], errors="coerce").fillna(0)
+                sc = pd.to_numeric(hs_grp["status_code"] if not hs_grp.empty else grp["status_code"],
+                                   errors="coerce").fillna(0)
                 err5xx = int((sc >= 500).sum())
                 err4xx = int(((sc >= 400) & (sc < 500)).sum())
             else:
-                err5xx = int(grp[grp["metric_name"].str.contains(r"5\d\d|error", case=False, na=False)]["value"].count())
-                err4xx = int(grp[grp["metric_name"].str.contains(r"4\d\d", case=False, na=False)]["value"].count())
-            avg_ms  = _metric_stat(grp, ["time.taken", "time_taken", "timetaken", "response.*time"], "mean")
-            rps     = round(total_req / max((grp["timestamp"].max() - grp["timestamp"].min()).total_seconds(), 1), 1) if total_req > 0 else 0
+                err5xx, err4xx = 0, 0
 
-            ok_pct  = round((total_req - err5xx - err4xx) / max(total_req, 1) * 100, 1)
-            err5_pct = round(err5xx / max(total_req, 1) * 100, 2)
-            err4_pct = round(err4xx / max(total_req, 1) * 100, 2)
+            err_rate  = round((err5xx + err4xx) / max(total_req, 1) * 100, 2)
+            ok_pct    = round(100 - err_rate, 1)
+            err5_pct  = round(err5xx / max(total_req, 1) * 100, 2)
+            err4_pct  = round(err4xx / max(total_req, 1) * 100, 2)
 
-            if err5xx > 0:   sev_counts["crit"] += 1
-            if err4xx > 100: sev_counts["warn"] += 1
+            # ── Response time (from response_time_ms rows) ───────────────────
+            rt_grp = grp[grp["metric_name"] == "response_time_ms"].copy()
+            rt_vals = pd.to_numeric(rt_grp["value"], errors="coerce").dropna()
+
+            avg_ms = round(rt_vals.mean(), 0) if not rt_vals.empty else None
+            p90_ms = round(rt_vals.quantile(0.90), 0) if not rt_vals.empty else None
+            p95_ms = round(rt_vals.quantile(0.95), 0) if not rt_vals.empty else None
+            p99_ms = round(rt_vals.quantile(0.99), 0) if not rt_vals.empty else None
+
+            sla_ms_thresh = sla.get("p95_latency_ms", 2000)
+
+            # ── TPS analysis ─────────────────────────────────────────────────
+            span_sec = max((grp["timestamp"].max() - grp["timestamp"].min()).total_seconds(), 1)
+            avg_rps  = round(total_req / span_sec, 1)
+
+            # Peak TPS — bucket by 10-second windows
+            peak_tps_val, peak_tps_window = None, ""
+            if not rt_grp.empty:
+                try:
+                    tps_series = rt_grp.set_index("timestamp").resample("10s").size()
+                    if not tps_series.empty:
+                        peak_tps_val    = int(tps_series.max())
+                        peak_tps_window = str(tps_series.idxmax())[:19]
+                except Exception:
+                    pass
+
+            # ── Severity thresholds ──────────────────────────────────────────
+            if err5xx > 0:       sev_counts["crit"] += 1
+            if err4xx > 100:     sev_counts["warn"] += 1
+            if p95_ms is not None and p95_ms > sla_ms_thresh:
+                sev_counts["crit"] += 1
+            elif p95_ms is not None and p95_ms > sla_ms_thresh * 0.8:
+                sev_counts["warn"] += 1
+
+            # ── Summary metric cards ─────────────────────────────────────────
+            def _v(val, fmt): return fmt.format(val) if val is not None else "N/A"
+            resp_sev = ("crit" if p95_ms and p95_ms > sla_ms_thresh
+                        else ("warn" if p95_ms and p95_ms > sla_ms_thresh * 0.8 else "ok"))
 
             metrics = [
-                {"label": "Total requests", "value": f"{total_req:,}", "sev": "ok"},
-                {"label": "HTTP 500s",       "value": str(err5xx),      "sev": "crit" if err5xx > 0 else "ok"},
-                {"label": "HTTP 4xxs",       "value": str(err4xx),      "sev": "warn" if err4xx > 100 else "ok"},
-                {"label": "Req/sec",         "value": str(rps),         "sev": "ok"},
+                {"label": "Total requests", "value": f"{total_req:,}",        "sev": "ok"},
+                {"label": "Error rate",     "value": f"{err_rate}%",          "sev": "crit" if err_rate > 5 else ("warn" if err_rate > 1 else "ok")},
+                {"label": "Avg resp (ms)",  "value": _v(avg_ms, "{:.0f}"),   "sev": "ok"},
+                {"label": "P95 resp (ms)",  "value": _v(p95_ms, "{:.0f}"),   "sev": resp_sev},
+                {"label": "P99 resp (ms)",  "value": _v(p99_ms, "{:.0f}"),   "sev": resp_sev},
+                {"label": "HTTP 500s",      "value": str(err5xx),             "sev": "crit" if err5xx > 0 else "ok"},
+                {"label": "HTTP 4xxs",      "value": str(err4xx),             "sev": "warn" if err4xx > 100 else "ok"},
+                {"label": "Avg req/sec",    "value": str(avg_rps),            "sev": "ok"},
             ]
+            if peak_tps_val:
+                metrics.append({"label": "Peak TPS (10s)", "value": str(peak_tps_val), "sev": "ok"})
+
             bars = [
-                {"label": "HTTP 200 (ok)",  "pct": min(ok_pct, 100),   "val": f"{ok_pct}%",   "sev": "ok"},
-                {"label": "HTTP 4xx",       "pct": min(err4_pct*10,100),"val": f"{err4_pct}%", "sev": "warn" if err4xx > 0 else "ok"},
-                {"label": "HTTP 5xx",       "pct": min(err5_pct*10,100),"val": str(err5xx),    "sev": "crit" if err5xx > 0 else "ok"},
+                {"label": "HTTP 2xx (ok)",  "pct": min(ok_pct, 100),    "val": f"{ok_pct}%",    "sev": "ok"},
+                {"label": "HTTP 4xx",       "pct": min(err4_pct*10,100), "val": f"{err4_pct}%", "sev": "warn" if err4xx > 0 else "ok"},
+                {"label": "HTTP 5xx",       "pct": min(err5_pct*10,100), "val": str(err5xx),    "sev": "crit" if err5xx > 0 else "ok"},
+                {"label": "P95 resp (ms)",  "pct": min(p95_ms / sla_ms_thresh * 100, 100) if p95_ms else 0,
+                                            "val": _v(p95_ms, "{:.0f} ms"), "sev": resp_sev},
             ]
+
+            # ── Endpoint performance table (top 15 by P95) ──────────────────
+            endpoint_table = None
+            if not rt_grp.empty and "uri_stem" in rt_grp.columns:
+                try:
+                    rt_grp["_rt"] = pd.to_numeric(rt_grp["value"], errors="coerce")
+                    ep = rt_grp.dropna(subset=["_rt"]).groupby("uri_stem")["_rt"].agg(
+                        Requests="count",
+                        Avg=lambda x: round(x.mean(), 0),
+                        P50=lambda x: round(x.quantile(0.50), 0),
+                        P90=lambda x: round(x.quantile(0.90), 0),
+                        P95=lambda x: round(x.quantile(0.95), 0),
+                        P99=lambda x: round(x.quantile(0.99), 0),
+                        Max=lambda x: round(x.max(), 0),
+                    ).reset_index()
+                    # Add per-endpoint error count
+                    if "status_code" in rt_grp.columns:
+                        sc_rt = pd.to_numeric(rt_grp["status_code"], errors="coerce")
+                        err_ep = rt_grp[sc_rt >= 400].groupby("uri_stem").size().rename("Errors")
+                        ep = ep.merge(err_ep, on="uri_stem", how="left")
+                        ep["Errors"] = ep["Errors"].fillna(0).astype(int)
+                        ep["Err%"] = (ep["Errors"] / ep["Requests"] * 100).round(1)
+                    else:
+                        ep["Errors"] = 0; ep["Err%"] = 0.0
+
+                    ep = ep.sort_values("P95", ascending=False).head(15)
+                    ep_rows = []
+                    for _, r in ep.iterrows():
+                        p95_ep = r["P95"]
+                        ep_sev = ("crit" if p95_ep > sla_ms_thresh
+                                  else ("warn" if p95_ep > sla_ms_thresh * 0.8 else "ok"))
+                        ep_rows.append({
+                            "cells": [
+                                r["uri_stem"],
+                                f"{int(r['Requests']):,}",
+                                f"{int(r['Avg'])}",
+                                f"{int(r['P50'])}",
+                                f"{int(r['P90'])}",
+                                f"{int(r['P95'])}",
+                                f"{int(r['P99'])}",
+                                f"{int(r['Max'])}",
+                                str(int(r["Errors"])),
+                                f"{r['Err%']:.1f}%",
+                            ],
+                            "sev": ep_sev,
+                        })
+                    endpoint_table = {
+                        "caption": "Slowest Endpoints — response times in ms, sorted by P95 desc",
+                        "headers": ["Endpoint", "Requests", "Avg", "P50", "P90", "P95", "P99", "Max", "Errors", "Err%"],
+                        "rows": ep_rows,
+                    }
+                except Exception as _e:
+                    log.warning(f"[generator] Endpoint table build failed: {_e}")
+
+            # ── HTTP status breakdown table ───────────────────────────────────
+            error_table = None
+            if not hs_grp.empty and "status_code" in hs_grp.columns:
+                try:
+                    sc_all = pd.to_numeric(hs_grp["status_code"], errors="coerce").dropna().astype(int)
+                    sc_counts = sc_all.value_counts().sort_index()
+                    total_hs  = len(sc_all)
+                    err_rows  = []
+                    for code, cnt in sc_counts.items():
+                        pct    = round(cnt / total_hs * 100, 2)
+                        code_i = int(code)
+                        if code_i >= 400:
+                            c_sev = "crit" if code_i >= 500 else "warn"
+                        else:
+                            c_sev = "ok"
+                        # Substatus detail for 5xx rows
+                        substatus_hint = ""
+                        if code_i >= 500 and "substatus" in hs_grp.columns:
+                            sub_counts = (pd.to_numeric(
+                                hs_grp[sc_all == code_i]["substatus"],
+                                errors="coerce").dropna().astype(int).value_counts().head(3))
+                            if not sub_counts.empty:
+                                substatus_hint = ", ".join(
+                                    f"{code_i}.{s}({n})" for s, n in sub_counts.items()
+                                )
+                        err_rows.append({
+                            "cells": [str(code_i), f"{cnt:,}", f"{pct}%", substatus_hint],
+                            "sev": c_sev,
+                        })
+                    if err_rows:
+                        error_table = {
+                            "caption": "HTTP Status Code Breakdown",
+                            "headers": ["Status", "Count", "%", "Substatus detail (5xx)"],
+                            "rows": err_rows,
+                        }
+                except Exception as _e:
+                    log.warning(f"[generator] Error table build failed: {_e}")
+
+            # ── Payload vs latency note ───────────────────────────────────────
+            payload_note = None
+            if not rt_grp.empty and "bytes_sent" in rt_grp.columns:
+                try:
+                    b = pd.to_numeric(rt_grp["bytes_sent"], errors="coerce")
+                    t = pd.to_numeric(rt_grp["value"],      errors="coerce")
+                    mask = b.notna() & t.notna() & (b > 0)
+                    if mask.sum() > 20:
+                        corr = b[mask].corr(t[mask])
+                        if corr is not None and abs(corr) > 0.3:
+                            direction = "positive" if corr > 0 else "negative"
+                            payload_note = (f"Payload size vs response time correlation: "
+                                            f"r={corr:.2f} ({direction}) — "
+                                            f"larger responses are {'slower' if corr > 0 else 'faster'}")
+                except Exception:
+                    pass
+
             findings = []
             if err5xx > 0:
-                findings.append({"sev": "crit", "text": f"{err5xx:,} HTTP 500 errors detected"})
+                findings.append({"sev": "crit", "text": f"{err5xx:,} HTTP 5xx errors — {err5_pct}% of requests"})
             if err4xx > 100:
                 findings.append({"sev": "warn", "text": f"{err4xx:,} HTTP 4xx client errors"})
+            if p95_ms and p95_ms > sla_ms_thresh:
+                findings.append({"sev": "crit", "text": f"P95 response time {p95_ms:.0f} ms exceeds {sla_ms_thresh} ms SLA"})
+            elif p95_ms and p95_ms > sla_ms_thresh * 0.8:
+                findings.append({"sev": "warn", "text": f"P95 response time {p95_ms:.0f} ms approaching {sla_ms_thresh} ms SLA"})
+            if peak_tps_val:
+                findings.append({"sev": "ok", "text": f"Peak load: {peak_tps_val} req/10s at {peak_tps_window}"})
+            if payload_note:
+                findings.append({"sev": "ok", "text": payload_note})
+
+            sections = [{"title": "IIS — web traffic", "metrics": metrics, "bars": bars}]
+            if endpoint_table:
+                sections.append({"title": "Endpoint Performance (top 15 by P95)", "metrics": [], "bars": [], "table": endpoint_table})
+            if error_table:
+                sections.append({"title": "HTTP Status Distribution", "metrics": [], "bars": [], "table": error_table})
 
             servers.append({
                 "name":   server_name,
                 "source": "IIS",
                 "tags":   ["IIS"],
                 "sev_counts": sev_counts,
-                "sections": [{"title": "IIS — web traffic", "metrics": metrics, "bars": bars}],
+                "sections": sections,
                 "findings": findings,
             })
 
