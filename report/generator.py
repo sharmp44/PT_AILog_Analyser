@@ -194,31 +194,22 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
             blocked = _metric_stat(grp, ["processes.blocked", "processes_blocked", "blocked.proc"], "max")
             recomp  = _metric_stat(grp, ["recompilations/sec", "sql.*recompil"], "max")
 
-            cpu_thresh   = sla.get("cpu_pct", 85)
             bch_thresh   = sql_sla.get("min_buffer_cache_hit_pct", 95)
             ple_thresh   = sql_sla.get("min_page_life_expectancy_s", 300)
             blk_thresh   = sql_sla.get("max_processes_blocked", 5)
 
-            cpu_sev  = _sev(cpu,     cpu_thresh * 0.85, cpu_thresh)
             bch_sev  = _sev(bch,     bch_thresh + 1,    bch_thresh, higher_is_worse=False)
             ple_sev  = _sev(ple,     ple_thresh + 60,   ple_thresh, higher_is_worse=False)
             blk_sev  = _sev(blocked, blk_thresh - 1,    blk_thresh)
 
-            for s in [cpu_sev, bch_sev, ple_sev, blk_sev]:
+            for s in [bch_sev, ple_sev, blk_sev]:
                 if s == "crit":  sev_counts["crit"] += 1
                 elif s == "warn": sev_counts["warn"] += 1
 
             def _sv(val, fmt): return fmt.format(val) if val is not None else "N/A"
-            mem_sev_sql = _sev(mem_pct, 85, 90)
 
-            sys_metrics = [
-                {"label": "CPU (peak)", "value": _sv(cpu, "{}%"),     "sev": cpu_sev if cpu is not None else "ok"},
-                {"label": "Memory %",  "value": _sv(mem_pct, "{}%"), "sev": mem_sev_sql if mem_pct is not None else "ok"},
-            ]
-            sys_bars = [
-                {"label": "CPU %",    "pct": min(cpu, 100) if cpu is not None else 0,        "val": _sv(cpu, "{}%"),     "sev": cpu_sev if cpu is not None else "ok"},
-                {"label": "Memory %", "pct": min(mem_pct, 100) if mem_pct is not None else 0,"val": _sv(mem_pct, "{}%"), "sev": mem_sev_sql if mem_pct is not None else "ok"},
-            ]
+            sys_metrics = []
+            sys_bars    = []
 
             sql_metrics = [
                 {"label": "Buffer cache hit", "value": _sv(bch, "{}%"),           "sev": bch_sev if bch is not None else "ok"},
@@ -235,8 +226,6 @@ def _build_server_stats(df: pd.DataFrame, cfg: dict) -> list[dict]:
             ]
 
             findings = []
-            if cpu_sev in ("crit", "warn"):
-                findings.append({"sev": cpu_sev, "text": f"SQL CPU at {cpu}% — exceeded {cpu_thresh}% threshold"})
             if bch_sev in ("crit", "warn"):
                 findings.append({"sev": bch_sev, "text": f"Buffer cache hit {bch}% — below {bch_thresh}% minimum"})
             if ple_sev in ("crit", "warn"):
