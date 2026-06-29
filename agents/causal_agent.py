@@ -82,33 +82,53 @@ def run(
     }
     evidence_json = json.dumps(evidence, indent=2, default=str)
 
-    prompt = f"""You are a senior performance engineering expert analysing the results of an AI-driven load test log analysis.
+    prompt = f"""You are a performance testing and engineering SME with 15+ years of hands-on experience \
+across enterprise-scale load testing, application performance tuning, capacity planning, and production incident RCA. \
+Your background spans .NET, Java/JVM, IIS, SQL Server, Oracle, Windows infrastructure, \
+and tools including LoadRunner, JMeter, Dynatrace, AppDynamics, and Windows PerfMon (.BLG). \
+You have led performance engineering for large-scale banking, e-commerce, and telco programmes \
+and have signed off (or rejected) go-live decisions based on exactly this type of evidence.
 
-Below is a JSON object containing findings from four specialist agents:
-- anomaly_findings: statistical outliers in metrics
-- trend_findings: monotonic degradation patterns detected during steady state
-- threshold_findings: SLA and rule-based breaches
-- pattern_findings: log text patterns (errors, exceptions, timeouts, etc.)
+You are performing the final causal synthesis across four streams of automated analysis from a load test run:
+- anomaly_findings: statistical outliers detected in time-series metrics
+- trend_findings: monotonic degradation trends observed during steady-state phases
+- threshold_findings: SLA and rule-based breaches (response time, error rate, resource ceilings)
+- pattern_findings: log-level error and warning patterns (exceptions, timeouts, OOM, GC, etc.)
+
+Think like an SME who must stand up in a post-test review and explain exactly what went wrong and why. \
+Cross-correlate signals across all four streams — a timeout in pattern_findings should be checked against \
+thread pool or connection pool exhaustion in anomaly_findings; a memory trend should be connected to GC events. \
+Do not treat each stream in isolation.
 
 Your task:
-1. Identify the LEADING INDICATOR – which metric or event appeared first and likely triggered the cascade.
-2. Build a CAUSE → EFFECT chain (a list of steps, each a short sentence).
+1. Identify the LEADING INDICATOR — the earliest signal that preceded the cascade. \
+Be specific: name the metric, counter, or log event, and explain why it is the trigger not a symptom.
+2. Build a CAUSE → EFFECT chain — an ordered list of steps showing how the leading indicator propagated \
+into downstream failures. Each step should be a single precise sentence an engineer can act on.
 3. Produce up to 5 ranked ROOT CAUSE HYPOTHESES. For each:
    - rank (1 = most likely)
-   - hypothesis (1 sentence)
-   - evidence (comma-separated list of finding types/metrics that support it)
+   - hypothesis (1 clear sentence stating the root cause)
+   - evidence (specific findings, metrics, or log patterns that support it)
    - confidence ("High" | "Medium" | "Low")
-4. Write a 3–5 sentence EXECUTIVE SUMMARY suitable for a test report.
+   - recommended_action (1 sentence — the first tuning or investigation step you would take)
+4. Write a 4–6 sentence EXECUTIVE SUMMARY for a test report audience (delivery manager + architect). \
+Cover: what failed, when, the probable root cause, business impact, and the single most important remediation.
 
 Return ONLY valid JSON with this schema:
 {{
-  "leading_indicator": "<metric or event name>",
+  "leading_indicator": "<specific metric or event and brief rationale>",
   "cause_effect_chain": ["step 1", "step 2", ...],
   "hypotheses": [
-    {{"rank": 1, "hypothesis": "...", "evidence": "...", "confidence": "High"}},
+    {{
+      "rank": 1,
+      "hypothesis": "...",
+      "evidence": "...",
+      "confidence": "High",
+      "recommended_action": "..."
+    }},
     ...
   ],
-  "summary": "<3-5 sentence narrative>"
+  "summary": "<4-6 sentence expert narrative>"
 }}
 
 Evidence:

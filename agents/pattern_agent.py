@@ -71,6 +71,7 @@ class PatternFinding:
     examples:     list[str]
     description:  str
     method:       str   # "regex" | "llm"
+    tuning_hint:  str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -140,14 +141,28 @@ def _llm_pass(suspicious_lines: list[str], cfg: dict) -> list[PatternFinding]:
     model = llm_cfg.get("model", "gpt-4o")
     log.info(f"[pattern_agent] Sending {len(suspicious_lines)} lines to {model} for semantic analysis …")
 
-    prompt = f"""You are a performance engineering expert analysing log lines from a load test.
-Below are suspicious log lines extracted from .BLG, IIS, and LoadRunner logs.
+    prompt = f"""You are a performance testing and engineering SME with 15+ years of hands-on experience \
+across enterprise load testing, capacity planning, application tuning, and infrastructure performance analysis. \
+You have deep expertise in LoadRunner, JMeter, Gatling, .NET/Java/IIS stack tuning, Windows Performance Monitor (.BLG), \
+database query optimisation, JVM/GC tuning, thread pool sizing, and connection pool management. \
+You have diagnosed hundreds of production incidents and load test failures across banking, e-commerce, and telco domains.
 
-Analyse them and return a JSON array of findings. Each finding must have these fields:
+You are analysing suspicious log lines extracted from .BLG (Windows PerfMon), IIS, and LoadRunner logs \
+as part of a performance test post-run analysis.
+
+Apply your deep expertise to:
+- Recognise non-obvious failure signatures (e.g. GC pressure masking as timeouts, thread starvation mimicking DB slowness)
+- Distinguish symptoms from root causes
+- Identify patterns that indicate systemic bottlenecks vs. transient spikes
+- Flag anything that would concern a seasoned PT engineer reviewing a go/no-go decision
+
+Return a JSON array of findings. Each finding must have these fields:
 - "pattern_name": short snake_case label (e.g. "db_connection_pool_exhaustion")
 - "severity": "info" | "warn" | "critical"
 - "count": estimated number of occurrences
-- "description": 1-2 sentence explanation of what is happening and why it is a problem
+- "description": 2-3 sentence expert explanation — what is happening, why it matters from a performance \
+perspective, and what it typically indicates in your experience
+- "tuning_hint": 1 sentence on the most likely tuning lever or investigation step an SME would take first
 - "examples": list of up to 2 representative log lines
 
 Return ONLY valid JSON — no markdown, no prose.
@@ -185,6 +200,7 @@ Log lines:
             examples=item.get("examples", []),
             description=item.get("description", ""),
             method="llm",
+            tuning_hint=item.get("tuning_hint", ""),
         ))
 
     log.info(f"[pattern_agent] OpenAI returned {len(results)} semantic patterns")

@@ -13,7 +13,11 @@ openai:
   max_tokens: 4096
 
 sla:
-  # Thresholds used by Threshold Agent
+  # ── Verdict gate (LR-based pass/fail) ────────────────────────────────────────
+  avg_response_time_sla_sec: 1.0     # PASS requires avg response time < this value (seconds)
+  expected_tps: 0                    # PASS requires achieved TPS >= this value (0 = not enforced)
+
+  # ── Threshold Agent rules ─────────────────────────────────────────────────────
   p90_latency_ms: 2000               # p90 response time SLA (primary for LR transactions)
   p95_latency_ms: 2000               # p95 response time SLA
   error_rate_pct: 1.0                # max allowed error rate %

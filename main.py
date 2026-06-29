@@ -135,6 +135,23 @@ def run_pipeline(files: list[Path], cfg: dict) -> dict:
         f"threshold={len(threshold_f)}, pattern={len(pattern_f)}"
     )
 
+    # ── Compute LR KPIs for verdict gating ───────────────────────────────────
+    lr_data      = combined[combined["source"] == "loadrunner"]
+    avg_rt_vals  = lr_data[lr_data["metric_name"] == "avg_response_sec"]["value"]
+    tps_vals     = lr_data[lr_data["metric_name"] == "tps"]["value"]
+    lr_kpis = {
+        "avg_response_sec": float(avg_rt_vals.mean()) if not avg_rt_vals.empty else None,
+        "achieved_tps":     float(tps_vals.mean())    if not tps_vals.empty    else None,
+    }
+    if lr_kpis["avg_response_sec"] is not None:
+        console.print(
+            f"[green]✓[/green] LR KPIs — "
+            f"avg_rt=[bold]{lr_kpis['avg_response_sec']:.3f}s[/bold]  "
+            f"achieved_tps=[bold]{lr_kpis['achieved_tps'] if lr_kpis['achieved_tps'] is not None else 'N/A'}[/bold]"
+        )
+    else:
+        console.print("[yellow]⚠[/yellow] No LoadRunner avg_response_sec data found — verdict will be UNKNOWN")
+
     # ── Causal agent (sequential – needs all agent outputs) ───────────────────
     console.rule("[bold orange3]④ CORRELATION")
     causal_result = causal_agent.run(anomaly_f, trend_f, threshold_f, pattern_f, cfg)
@@ -144,19 +161,28 @@ def run_pipeline(files: list[Path], cfg: dict) -> dict:
     rca = rca_engine.build(
         causal_result, timeline,
         anomaly_f, trend_f, threshold_f, pattern_f,
+        lr_kpis=lr_kpis,
+        cfg=cfg,
         output_dir=output_dir,
     )
 
     console.rule("[bold cyan]⑤ REPORT")
     paths = generator.generate(rca, output_dir, run_id=run_id, cfg=cfg, export_pdf=True)
 
+    vd            = rca.get("verdict_detail", {})
+    rt_vd         = vd.get("avg_response_time", {})
+    tps_vd        = vd.get("tps", {})
+    verdict_color = "red" if rca["verdict"] == "FAIL" else ("yellow" if rca["verdict"] == "UNKNOWN" else "green")
+
     console.print(Panel(
         f"[bold green]Pipeline complete![/bold green]\n\n"
-        f"Verdict:  [bold]{'[red]FAIL' if rca['verdict']=='FAIL' else '[green]PASS'}[/bold]\n"
-        f"Findings: {rca['finding_counts']['total']}\n"
-        f"HTML:     {paths['html']}\n"
-        f"PDF:      {paths['pdf'] or 'skipped (install weasyprint)'}",
-        title="Results", border_style="green",
+        f"Verdict  : [bold {verdict_color}]{rca['verdict']}[/bold {verdict_color}]\n"
+        f"  Avg RT : {rt_vd.get('actual_sec', 'N/A')}s  (SLA < {rt_vd.get('threshold_sec')}s) → {rt_vd.get('status')}\n"
+        f"  TPS    : {tps_vd.get('achieved', 'N/A')}  (expected >= {tps_vd.get('expected')}) → {tps_vd.get('status')}\n\n"
+        f"Findings : {rca['finding_counts']['total']}\n"
+        f"HTML     : {paths['html']}\n"
+        f"PDF      : {paths['pdf'] or 'skipped (install weasyprint)'}",
+        title="Results", border_style=verdict_color,
     ))
 
     return {**rca, "report_paths": {k: str(v) for k, v in paths.items() if v}}
