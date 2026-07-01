@@ -138,6 +138,9 @@ def run_pipeline(files: list[Path], cfg: dict) -> dict:
     # ── Compute LR KPIs for verdict gating ───────────────────────────────────
     lr_data      = combined[combined["source"] == "loadrunner"]
     avg_rt_vals  = lr_data[lr_data["metric_name"] == "avg_response_sec"]["value"]
+    # Fallback: vuser logs store per-tx timings as "tx_response_sec" not "avg_response_sec"
+    if avg_rt_vals.empty:
+        avg_rt_vals = lr_data[lr_data["metric_name"] == "tx_response_sec"]["value"]
     tps_vals     = lr_data[lr_data["metric_name"] == "tps"]["value"]
     lr_kpis = {
         "avg_response_sec": float(avg_rt_vals.mean()) if not avg_rt_vals.empty else None,
@@ -150,7 +153,7 @@ def run_pipeline(files: list[Path], cfg: dict) -> dict:
             f"achieved_tps=[bold]{lr_kpis['achieved_tps'] if lr_kpis['achieved_tps'] is not None else 'N/A'}[/bold]"
         )
     else:
-        console.print("[yellow]⚠[/yellow] No LoadRunner avg_response_sec data found — verdict will be UNKNOWN")
+        console.print("[yellow]⚠[/yellow] No LoadRunner response-time data found — checking threshold breaches for verdict")
 
     # ── Causal agent (sequential – needs all agent outputs) ───────────────────
     console.rule("[bold orange3]④ CORRELATION")

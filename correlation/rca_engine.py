@@ -126,6 +126,20 @@ def build(
 
     verdict, verdict_detail = _compute_verdict(lr_kpis, cfg)
 
+    # Hard-override: if no LR response-time data but critical threshold breaches exist → FAIL
+    if verdict == "UNKNOWN":
+        critical_breaches = [
+            f for f in threshold_findings
+            if str(f.get("severity", "")).lower() == "critical"
+        ]
+        if critical_breaches:
+            verdict = "FAIL"
+            verdict_detail["override_reason"] = (
+                f"No LR response-time data available, but {len(critical_breaches)} "
+                "critical threshold breach(es) detected — auto-classified as FAIL."
+            )
+            log.info(f"[rca_engine] Verdict overridden UNKNOWN→FAIL: {len(critical_breaches)} critical threshold breaches")
+
     result = {
         "verdict":            verdict,
         "verdict_detail":     verdict_detail,
