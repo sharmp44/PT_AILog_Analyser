@@ -534,18 +534,22 @@ def _build_lr_summary(lr_rows: list[dict], combined_df, cfg: dict) -> dict | Non
                 target_tps = int(m.group(1))
                 break
 
-    # Extract test scenario name from LR filename
-    test_name = cfg.get("report", {}).get("company_name", "Performance Test")
-    if combined_df is not None and "_source_file" in combined_df.columns:
-        lr_files = combined_df[combined_df["source"] == "loadrunner"]["_source_file"].unique()
-        for fn in lr_files:
-            stem = Path(fn).stem
-            stem = re.sub(r'^LR_', '', stem, flags=re.IGNORECASE)
-            stem = re.sub(r'_?RunID_?\d+', '', stem, flags=re.IGNORECASE)
-            stem = re.sub(r'_?\d{6,8}', '', stem)
-            stem = re.sub(r'_?\d{1,2}[A-Za-z]+(?:_\d{4})?', '', stem)
-            test_name = stem.replace('_', ' ').strip(' -')
-            break
+    # Extract test scenario name — config override takes priority over filename derivation
+    config_test_name = cfg.get("report", {}).get("test_name", "").strip()
+    if config_test_name:
+        test_name = config_test_name
+    else:
+        test_name = cfg.get("report", {}).get("company_name", "Performance Test")
+        if combined_df is not None and "_source_file" in combined_df.columns:
+            lr_files = combined_df[combined_df["source"] == "loadrunner"]["_source_file"].unique()
+            for fn in lr_files:
+                stem = Path(fn).stem
+                stem = re.sub(r'^LR_', '', stem, flags=re.IGNORECASE)
+                stem = re.sub(r'_?RunID_?\d+', '', stem, flags=re.IGNORECASE)
+                stem = re.sub(r'_?\d{6,8}', '', stem)
+                stem = re.sub(r'_?\d{1,2}[A-Za-z]+(?:_\d{4})?', '', stem)
+                test_name = stem.replace('_', ' ').strip(' -')
+                break
 
     # SLA severity for P90/P99
     def resp_sev(val):
