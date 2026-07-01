@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance Test Report</title>
+<style>
+  :root {
+    --bg: #0f0f1a; --card: #181828; --card2: #1e1e30;
+    --border: #2a2a40; --border2: #333348;
+    --text: #e0e0f0; --muted: #8888aa;
+    --blue: #388bfd; --green: #3fb950; --amber: #d29922;
+    --red: #f85149; --purple: #bc8cff; --teal: #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 13px; line-height: 1.6;
+  }
+
+  .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
+
+  /* ── Header ── */
+  .report-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 28px;
+  }
+  .report-header .title-block p.eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .report-header .title-block h1 { font-size: 20px; font-weight: 600; color: var(--text); }
+  .report-header .title-block p.sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .verdict-badge {
+    display: inline-block; padding: 5px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; margin-top: 4px;
+  }
+  .verdict-PASS    { background: #14532d; color: #4ade80; border: 1px solid #4ade80; }
+  .verdict-FAIL    { background: #450a0a; color: #f87171; border: 1px solid #f87171; }
+  .verdict-UNKNOWN { background: #1f2937; color: #9ca3af; border: 1px solid #4b5563; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 6px 12px;
+    background: var(--card); border-left: 3px solid;
+    border-radius: 0 6px 6px 0; margin-bottom: 14px;
+  }
+  .section-title.blue   { border-color: var(--blue);   color: var(--blue); }
+  .section-title.green  { border-color: var(--green);  color: var(--green); }
+  .section-title.amber  { border-color: var(--amber);  color: var(--amber); }
+  .section-title.red    { border-color: var(--red);    color: var(--red); }
+  .section-title.purple { border-color: var(--purple); color: var(--purple); }
+  .section-title.teal   { border-color: var(--teal);   color: var(--teal); }
+
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* ── Metric cards ── */
+  .metric-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px; margin-bottom: 12px;
+  }
+  .m-card { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .m-card .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase;
+                 letter-spacing: 0.05em; margin-bottom: 3px; }
+  .m-card .val { font-size: 20px; font-weight: 700; }
+  .val.ok   { color: #4ade80; }
+  .val.warn { color: #fbbf24; }
+  .val.crit { color: #f87171; }
+  .val.info { color: #60a5fa; }
+
+  /* ── Tables ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table thead th {
+    background: #111; color: var(--muted); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table tbody td {
+    padding: 7px 12px; border-bottom: 1px solid var(--border2);
+    vertical-align: middle; color: var(--text);
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover td { background: var(--card2); }
+  .data-table tbody tr.crit td:first-child { border-left: 3px solid #ef4444; }
+  .data-table tbody tr.warn td:first-child { border-left: 3px solid #f59e0b; }
+  .data-table tbody tr.crit td { color: #fca5a5; }
+  .data-table tbody tr.warn td { color: #fde68a; }
+  .table-wrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+  }
+  .badge.ok   { background: #14532d; color: #4ade80; }
+  .badge.warn { background: #451a03; color: #fbbf24; }
+  .badge.crit { background: #450a0a; color: #f87171; }
+  .badge.info { background: #1e3a5f; color: #60a5fa; }
+
+  /* ── Bar rows ── */
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 5px; }
+  .bar-label { width: 130px; color: var(--muted); flex-shrink: 0; }
+  .bar-track { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 4px; }
+  .bar-fill.ok   { background: #22c55e; }
+  .bar-fill.warn { background: #f59e0b; }
+  .bar-fill.crit { background: #ef4444; }
+  .bar-val { width: 46px; text-align: right; font-weight: 600; flex-shrink: 0; }
+
+  /* ── Server blocks ── */
+  .server-block {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .server-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    padding-bottom: 12px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .server-name { font-weight: 600; font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 4px;
+    font-size: 10px; background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border); margin-left: 6px;
+  }
+  .status-row { display: flex; gap: 8px; }
+  .server-section-title {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px;
+  }
+  .server-divider { border: none; border-top: 1px solid var(--border2); margin: 14px 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ── Finding rows ── */
+  .findings-area { margin-top: 12px; border-top: 1px solid var(--border2); padding-top: 10px; }
+  .finding-healthy {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: #4ade80;
+  }
+  .finding-callout {
+    display: flex; align-items: flex-start; gap: 10px;
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 12px;
+  }
+  .finding-callout:last-child { margin-bottom: 0; }
+  .finding-callout.crit { background: #2d0a0a; border-left: 3px solid #ef4444; color: #fca5a5; }
+  .finding-callout.warn { background: #2d1a00; border-left: 3px solid #f59e0b; color: #fde68a; }
+  .finding-callout-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Summary box ── */
+  .summary-box {
+    background: var(--card); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 14px 18px;
+    font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 16px;
+  }
+
+  /* ── Chain ── */
+  .chain { list-style: none; }
+  .chain li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .chain-num {
+    background: var(--purple); color: #fff; border-radius: 50%;
+    width: 22px; height: 22px; min-width: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800;
+  }
+  .chain-txt {
+    background: #1a0d2e; border: 1px solid #3a1060;
+    border-radius: 6px; padding: 7px 12px; flex: 1; line-height: 1.5; color: var(--text);
+  }
+
+  /* ── Hypotheses ── */
+  .hyp-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+  .hyp-card.r1 { border-left: 3px solid #ef4444; }
+  .hyp-card.r2 { border-left: 3px solid #f59e0b; }
+  .hyp-card.r3 { border-left: 3px solid #60a5fa; }
+  .hyp-header  { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .hyp-rank    { border-radius: 50%; width: 22px; height: 22px; min-width: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+  .r1 .hyp-rank { background: #450a0a; color: #f87171; }
+  .r2 .hyp-rank { background: #451a03; color: #fbbf24; }
+  .r3 .hyp-rank { background: #1e3a5f; color: #60a5fa; }
+  .hyp-text { font-weight: 600; flex: 1; font-size: 13px; color: var(--text); }
+  .conf-badge  { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .conf-High   { background: #450a0a; color: #f87171; }
+  .conf-Medium { background: #451a03; color: #fbbf24; }
+  .conf-Low    { background: #1e3a5f; color: #60a5fa; }
+  .hyp-evidence { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Timeline ── */
+  .tl-item { display: flex; gap: 12px; margin-bottom: 8px; align-items: flex-start; }
+  .tl-dot  { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; min-width: 9px; }
+  .tl-dot.critical { background: #ef4444; }
+  .tl-dot.warn     { background: #f59e0b; }
+  .tl-dot.info     { background: #60a5fa; }
+  .tl-ts  { font-size: 11px; color: var(--muted); min-width: 175px; }
+  .tl-src { display: inline-block; background: var(--card2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-size: 9px; color: var(--muted); margin-right: 5px; vertical-align: middle; }
+  .tl-desc { font-size: 12px; line-height: 1.5; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; color: var(--muted); font-size: 10px; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══ HEADER ══ -->
+<div class="report-header">
+  <div class="title-block">
+    <p class="eyebrow">Performance test report — AI log mining</p>
+    <h1>results</h1>
+    <p class="sub">
+      Run ID: 5b994405 &nbsp;·&nbsp; Generated: 2026-07-01 09:50 UTC
+       &nbsp;·&nbsp; Duration: 74.7 min
+    </p>
+  </div>
+  <div style="text-align:right">
+    <div class="verdict-badge verdict-FAIL">Verdict: FAIL</div>
+    <p style="font-size:11px;color:var(--muted);margin-top:6px">
+      673 findings
+      
+        &nbsp;·&nbsp; <span style="color:var(--red)">23 failed TXs</span>
+      
+    </p>
+  </div>
+</div>
+
+
+
+<!-- ══ TEST SUMMARY ══ -->
+<div class="section">
+  <div class="section-title blue">① Test summary</div>
+
+  
+  <!-- LR performance KPIs -->
+  <div class="metric-grid">
+    
+    
+    <div class="m-card">
+      <div class="lbl">Achieved TPS</div>
+      <div class="val ok">990.0</div>
+    </div>
+    
+    
+    <div class="m-card">
+      <div class="lbl">Avg Response</div>
+      <div class="val ok">1.028s</div>
+    </div>
+    
+    
+    <div class="m-card">
+      <div class="lbl">P90 Response</div>
+      <div class="val warn">1.832s</div>
+    </div>
+    
+    
+    <div class="m-card">
+      <div class="lbl">Failed TXs</div>
+      <div class="val crit">23</div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- ══ LR TRANSACTION RESULTS ══ -->
+
+<div class="section">
+  <div class="section-title green">② LR transaction summary</div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Transaction</th>
+          <th>Avg (s)</th>
+          <th>Min (s)</th>
+          <th>P90 (s)</th>
+          <th>P99 (s)</th>
+          <th>Max (s)</th>
+          <th>Passed</th>
+          <th>Failed</th>
+          <th>TPS</th>
+          <th>SLA</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td><strong>Login</strong></td>
+          <td>0.45</td>
+          <td>0.38</td>
+          <td>0.8</td>
+          <td>—</td>
+          <td>1.8</td>
+          <td>—</td>
+          <td>0</td>
+          <td>200.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Search Products</strong></td>
+          <td>0.3</td>
+          <td>0.25</td>
+          <td>0.62</td>
+          <td>—</td>
+          <td>0.9</td>
+          <td>—</td>
+          <td>0</td>
+          <td>350.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Order Confirm</strong></td>
+          <td>0.35</td>
+          <td>0.28</td>
+          <td>0.7</td>
+          <td>—</td>
+          <td>1.5</td>
+          <td>—</td>
+          <td>0</td>
+          <td>120.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Add to Cart</strong></td>
+          <td>0.55</td>
+          <td>0.44</td>
+          <td>0.98</td>
+          <td>—</td>
+          <td>2.4</td>
+          <td>—</td>
+          <td>3</td>
+          <td>180.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Checkout</strong></td>
+          <td>1.2</td>
+          <td>0.95</td>
+          <td>2.1</td>
+          <td>—</td>
+          <td>6.8</td>
+          <td>—</td>
+          <td>12</td>
+          <td>80.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Payment</strong></td>
+          <td>0.95</td>
+          <td>0.8</td>
+          <td>1.75</td>
+          <td>—</td>
+          <td>5.2</td>
+          <td>—</td>
+          <td>8</td>
+          <td>60.0</td>
+          <td><span class="badge info">INFO</span></td>
+        </tr>
+        
+        <tr>
+          <td colspan="10" style="font-size:11px;color:var(--muted);font-style:italic;padding:8px 12px">
+            ↑ All transactions from the loaded LR file(s) are shown above
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<hr class="divider">
+
+<!-- ══ SERVER UTILIZATION ══ -->
+
+<div class="section">
+  <div class="section-title amber">③ Server resource utilization</div>
+
+  
+  
+
+  
+  <div class="two-col">
+    
+    <div class="server-block">
+      <div class="server-header">
+        <div class="server-name">
+          &#9635; SERVER01
+          <span class="tag">PerfMon</span>
+        </div>
+        <div class="status-row">
+          
+            <span class="badge crit">2 critical</span>
+          
+          
+          
+        </div>
+      </div>
+
+      
+        <p class="server-section-title">PerfMon — system</p>
+        
+        <div class="metric-grid">
+          
+          <div class="m-card">
+            <div class="lbl">CPU (peak)</div>
+            <div class="val crit">97.93%</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Memory %</div>
+            <div class="val crit">98.0%</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Disk queue</div>
+            <div class="val crit">4.49</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Network MB/s</div>
+            <div class="val ok">49.9</div>
+          </div>
+          
+        </div>
+        
+        
+        <div style="margin-top:8px">
+          
+          <div class="bar-row">
+            <span class="bar-label">CPU %</span>
+            <div class="bar-track">
+              <div class="bar-fill crit" style="width:97.93%"></div>
+            </div>
+            <span class="bar-val">97.93%</span>
+          </div>
+          
+          <div class="bar-row">
+            <span class="bar-label">Memory %</span>
+            <div class="bar-track">
+              <div class="bar-fill crit" style="width:98.0%"></div>
+            </div>
+            <span class="bar-val">98.0%</span>
+          </div>
+          
+          <div class="bar-row">
+            <span class="bar-label">Disk queue</span>
+            <div class="bar-track">
+              <div class="bar-fill crit" style="width:89.80000000000001%"></div>
+            </div>
+            <span class="bar-val">4.49</span>
+          </div>
+          
+        </div>
+        
+        
+        
+      
+
+      
+<div class="findings-area">
+  
+  
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>CPU peaked at 97.93% — exceeded 85% threshold</span>
+    </div>
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>Memory at 98.0% — near threshold</span>
+    </div>
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>Disk queue length 4.49 — exceeds normal threshold</span>
+    </div>
+    
+  
+</div>
+
+    </div>
+    
+    <div class="server-block">
+      <div class="server-header">
+        <div class="server-name">
+          &#9635; IIS
+          <span class="tag">IIS</span>
+        </div>
+        <div class="status-row">
+          
+            <span class="badge crit">1 critical</span>
+          
+          
+          
+        </div>
+      </div>
+
+      
+        <p class="server-section-title">IIS — web traffic</p>
+        
+        <div class="metric-grid">
+          
+          <div class="m-card">
+            <div class="lbl">Total requests</div>
+            <div class="val ok">500</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Error rate</div>
+            <div class="val crit">5.8%</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Avg resp (ms)</div>
+            <div class="val ok">350</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">P95 resp (ms)</div>
+            <div class="val ok">576</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">P99 resp (ms)</div>
+            <div class="val ok">588</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">HTTP 500s</div>
+            <div class="val crit">7</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">HTTP 4xxs</div>
+            <div class="val ok">22</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Avg req/sec</div>
+            <div class="val ok">0.6</div>
+          </div>
+          
+          <div class="m-card">
+            <div class="lbl">Peak TPS (10s)</div>
+            <div class="val ok">8</div>
+          </div>
+          
+        </div>
+        
+        
+        <div style="margin-top:8px">
+          
+          <div class="bar-row">
+            <span class="bar-label">HTTP 2xx (ok)</span>
+            <div class="bar-track">
+              <div class="bar-fill ok" style="width:94.2%"></div>
+            </div>
+            <span class="bar-val">94.2%</span>
+          </div>
+          
+          <div class="bar-row">
+            <span class="bar-label">HTTP 4xx</span>
+            <div class="bar-track">
+              <div class="bar-fill warn" style="width:44.0%"></div>
+            </div>
+            <span class="bar-val">4.4%</span>
+          </div>
+          
+          <div class="bar-row">
+            <span class="bar-label">HTTP 5xx</span>
+            <div class="bar-track">
+              <div class="bar-fill crit" style="width:14.0%"></div>
+            </div>
+            <span class="bar-val">7</span>
+          </div>
+          
+          <div class="bar-row">
+            <span class="bar-label">P95 resp (ms)</span>
+            <div class="bar-track">
+              <div class="bar-fill ok" style="width:28.799999999999997%"></div>
+            </div>
+            <span class="bar-val">576 ms</span>
+          </div>
+          
+        </div>
+        
+        
+        <hr class="server-divider">
+      
+        <p class="server-section-title">Endpoint Performance (top 15 by P95)</p>
+        
+        
+        
+        <div class="table-wrap" style="margin-top:10px">
+          <p style="font-size:10px;color:#6B7280;margin:0 0 4px 0">Slowest Endpoints — response times in ms, sorted by P95 desc</p>
+          <table class="data-table" style="font-size:11px">
+            <thead><tr><th>Endpoint</th><th>Requests</th><th>Avg</th><th>P50</th><th>P90</th><th>P95</th><th>P99</th><th>Max</th><th>Errors</th><th>Err%</th></tr></thead>
+            <tbody>
+              
+              <tr class="ok"><td>/api/products</td><td>96</td><td>341</td><td>330</td><td>562</td><td>580</td><td>591</td><td>591</td><td>5</td><td>5.2%</td></tr>
+              
+              <tr class="ok"><td>/health</td><td>109</td><td>342</td><td>335</td><td>536</td><td>579</td><td>588</td><td>598</td><td>5</td><td>4.6%</td></tr>
+              
+              <tr class="ok"><td>/api/orders</td><td>107</td><td>365</td><td>375</td><td>562</td><td>574</td><td>587</td><td>593</td><td>5</td><td>4.7%</td></tr>
+              
+              <tr class="ok"><td>/api/users</td><td>96</td><td>352</td><td>361</td><td>556</td><td>568</td><td>582</td><td>588</td><td>8</td><td>8.3%</td></tr>
+              
+              <tr class="ok"><td>/api/search</td><td>92</td><td>349</td><td>352</td><td>554</td><td>566</td><td>583</td><td>587</td><td>6</td><td>6.5%</td></tr>
+              
+            </tbody>
+          </table>
+        </div>
+        
+        <hr class="server-divider">
+      
+        <p class="server-section-title">HTTP Status Distribution</p>
+        
+        
+        
+        <div class="table-wrap" style="margin-top:10px">
+          <p style="font-size:10px;color:#6B7280;margin:0 0 4px 0">HTTP Status Code Breakdown</p>
+          <table class="data-table" style="font-size:11px">
+            <thead><tr><th>Status</th><th>Count</th><th>%</th><th>Substatus detail (5xx)</th></tr></thead>
+            <tbody>
+              
+              <tr class="ok"><td>200</td><td>444</td><td>88.8%</td><td></td></tr>
+              
+              <tr class="ok"><td>302</td><td>27</td><td>5.4%</td><td></td></tr>
+              
+              <tr class="warn"><td>404</td><td>22</td><td>4.4%</td><td></td></tr>
+              
+              <tr class="crit"><td>500</td><td>7</td><td>1.4%</td><td>500.0(7)</td></tr>
+              
+            </tbody>
+          </table>
+        </div>
+        
+        
+      
+
+      
+<div class="findings-area">
+  
+  
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>7 HTTP 5xx errors — 1.4% of requests</span>
+    </div>
+    
+  
+</div>
+
+    </div>
+    
+  </div>
+  
+
+  
+  <div class="server-block">
+    <div class="server-header">
+      <div class="server-name">&#9650; SQL Metrics
+        <span class="tag">PerfMon</span><span class="tag">SQL</span>
+      </div>
+      <div class="status-row">
+        <span class="badge crit">3 critical</span>
+        
+        
+      </div>
+    </div>
+    
+      <p class="server-section-title">SQL Server counters</p>
+      
+      <div class="metric-grid">
+        
+        <div class="m-card"><div class="lbl">Buffer cache hit</div><div class="val crit">82.24%</div></div>
+        
+        <div class="m-card"><div class="lbl">Page life exp.</div><div class="val crit">50.0s</div></div>
+        
+        <div class="m-card"><div class="lbl">Blocked procs</div><div class="val crit">20</div></div>
+        
+        <div class="m-card"><div class="lbl">Deadlocks/s</div><div class="val crit">1.07</div></div>
+        
+        <div class="m-card"><div class="lbl">Lock waits/s</div><div class="val warn">24.95</div></div>
+        
+        <div class="m-card"><div class="lbl">Recompiles/s</div><div class="val warn">34.17</div></div>
+        
+      </div>
+      
+      
+      <div style="margin-top:8px">
+        
+        <div class="bar-row">
+          <span class="bar-label">Buffer cache hit</span>
+          <div class="bar-track"><div class="bar-fill crit" style="width:82.24%"></div></div>
+          <span class="bar-val">82.24%</span>
+        </div>
+        
+        <div class="bar-row">
+          <span class="bar-label">Page life exp.</span>
+          <div class="bar-track"><div class="bar-fill crit" style="width:5.0%"></div></div>
+          <span class="bar-val">50.0s</span>
+        </div>
+        
+        <div class="bar-row">
+          <span class="bar-label">Blocked procs</span>
+          <div class="bar-track"><div class="bar-fill crit" style="width:100%"></div></div>
+          <span class="bar-val">20</span>
+        </div>
+        
+      </div>
+      
+      
+      
+    
+    
+<div class="findings-area">
+  
+  
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>Buffer cache hit 82.24% — below 95.0% minimum</span>
+    </div>
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>Page life expectancy 50.0s — near 300s floor</span>
+    </div>
+    
+    <div class="finding-callout crit">
+      <span class="finding-callout-icon">&#9888;</span>
+      <span>Blocked processes: 20 — exceeded 5 threshold</span>
+    </div>
+    
+  
+</div>
+
+  </div>
+  
+
+</div>
+
+
+<hr class="divider">
+
+<!-- ══ ANOMALY & TREND FINDINGS ══ -->
+
+<div class="section">
+  <div class="section-title teal">④ Anomaly &amp; trend findings</div>
+
+  
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px">SLA &amp; threshold breaches</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th>Actual</th><th>Threshold</th><th>Breaches</th><th>Severity</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td>cpu_pct</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge warn">WARN</span></td>
+        </tr>
+        
+        <tr>
+          <td>processor_cpu_pct</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge warn">WARN</span></td>
+        </tr>
+        
+        <tr>
+          <td>mem_committed_pct</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>205</td>
+          <td><span class="badge warn">WARN</span></td>
+        </tr>
+        
+        <tr>
+          <td>disk_queue_len</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>163</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>http_status</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>7</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_buffer_cache_hit_pct</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>105</td>
+          <td><span class="badge warn">WARN</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_page_life_expectancy_s</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>49</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_deadlocks_sec</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_lock_waits_sec</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_processes_blocked</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+        <tr>
+          <td>sql_recompilations_sec</td>
+          <td><strong></strong></td>
+          <td></td>
+          <td>23</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+
+  
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px;margin-top:14px">Degradation trends</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th>Direction</th><th>Slope/min</th><th>R²</th><th>Severity</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td>memory_mem_available_mb</td>
+          <td>decreasing</td>
+          <td>-78.377412</td>
+          <td>0.9994</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td style="color:#6b7280">memory_mem_available_mb is decreasing at -78.3774 units/min (p=0.0000, R²=1.00, Δ≈52.6%)</td>
+        </tr>
+        
+        <tr>
+          <td>physicaldisk_disk_queue_len</td>
+          <td>increasing</td>
+          <td>0.169355</td>
+          <td>0.5723</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td style="color:#6b7280">physicaldisk_disk_queue_len is increasing at +0.1694 units/min (p=0.0000, R²=0.57, Δ≈249.2%)</td>
+        </tr>
+        
+        <tr>
+          <td>process_proc_handle_count</td>
+          <td>increasing</td>
+          <td>8.593659</td>
+          <td>0.9995</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td style="color:#6b7280">process_proc_handle_count is increasing at +8.5937 units/min (p=0.0000, R²=1.00, Δ≈26.8%)</td>
+        </tr>
+        
+        <tr>
+          <td>sql_page_life_expectancy_s</td>
+          <td>decreasing</td>
+          <td>-49.752122</td>
+          <td>0.6672</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td style="color:#6b7280">sql_page_life_expectancy_s is decreasing at -49.7521 units/min (p=0.0000, R²=0.67, Δ≈148.1%)</td>
+        </tr>
+        
+        <tr>
+          <td>sql_target_memory_kb</td>
+          <td>decreasing</td>
+          <td>0.0</td>
+          <td>nan</td>
+          <td><span class="badge warn">WARN</span></td>
+          <td style="color:#6b7280">sql_target_memory_kb is decreasing at +0.0000 units/min (p=nan, R²=nan, Δ≈0.0%)</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+</div>
+
+
+<!-- ══ CORRELATION TIMELINE ══ -->
+
+<div class="section">
+  <div class="section-title teal">⑤ Event correlation timeline</div>
+  <div style="border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:06</div>
+      <div class="tl-desc">
+        <span class="tl-src">loadrunner</span>
+        <strong>sla_breach</strong>
+         — SLA / transaction failure: 12 occurrences
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_available_mb</strong>
+         — Anomaly (isolation_forest) on memory_mem_available_mb value=4087.9749 score=0.6520650883301423
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (iqr) on memory_mem_committed_pct value=60.2006 score=4.150534147205147
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (isolation_forest) on memory_mem_committed_pct value=60.2006 score=0.7106212633313432
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_handle_count</strong>
+         — Anomaly (isolation_forest) on process_proc_handle_count value=501.0 score=0.6669399213344693
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_working_set_b</strong>
+         — Anomaly (isolation_forest) on process_proc_working_set_b value=800000000.0 score=0.6692813966367193
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:10</div>
+      <div class="tl-desc">
+        <span class="tl-src">sql</span>
+        <strong>deadlock</strong>
+         — Deadlock detected: 300 occurrences
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_available_mb</strong>
+         — Anomaly (isolation_forest) on memory_mem_available_mb value=4079.8595 score=0.6351192073653165
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (iqr) on memory_mem_committed_pct value=60.4035 score=4.1363065833160935
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (isolation_forest) on memory_mem_committed_pct value=60.4035 score=0.6799782494301203
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>network_interface_net_bytes_total_sec</strong>
+         — Anomaly (isolation_forest) on network_interface_net_bytes_total_sec value=5123210.0 score=0.624200489061044
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_handle_count</strong>
+         — Anomaly (isolation_forest) on process_proc_handle_count value=502.0 score=0.6408671489957124
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:20</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_working_set_b</strong>
+         — Anomaly (isolation_forest) on process_proc_working_set_b value=800500000.0 score=0.6360669272151716
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:30</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_available_mb</strong>
+         — Anomaly (isolation_forest) on memory_mem_available_mb value=4061.2563 score=0.6181335560036938
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:30</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (iqr) on memory_mem_committed_pct value=60.8686 score=4.103693276441774
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:30</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (isolation_forest) on memory_mem_committed_pct value=60.8686 score=0.6458324981470125
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:30</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_handle_count</strong>
+         — Anomaly (isolation_forest) on process_proc_handle_count value=504.0 score=0.6051787782399927
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:30</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_working_set_b</strong>
+         — Anomaly (isolation_forest) on process_proc_working_set_b value=801000000.0 score=0.6140696430352522
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:40</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_available_mb</strong>
+         — Anomaly (isolation_forest) on memory_mem_available_mb value=4048.5807 score=0.6033000474371942
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:40</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (iqr) on memory_mem_committed_pct value=61.1855 score=4.08147191125478
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:40</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (isolation_forest) on memory_mem_committed_pct value=61.1855 score=0.6305442254577213
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:40</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_handle_count</strong>
+         — Anomaly (isolation_forest) on process_proc_handle_count value=505.0 score=0.5902869664576081
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:40</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>process_proc_working_set_b</strong>
+         — Anomaly (isolation_forest) on process_proc_working_set_b value=801500000.0 score=0.594955670503938
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot warn"></div>
+      <div class="tl-ts">2024-06-19 08:00:50</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_available_mb</strong>
+         — Anomaly (isolation_forest) on memory_mem_available_mb value=4028.7507 score=0.5650037069836144
+      </div>
+    </div>
+    
+    <div class="tl-item">
+      <div class="tl-dot critical"></div>
+      <div class="tl-ts">2024-06-19 08:00:50</div>
+      <div class="tl-desc">
+        <span class="tl-src">blg</span>
+        <strong>memory_mem_committed_pct</strong>
+         — Anomaly (iqr) on memory_mem_committed_pct value=61.6812 score=4.04671289982154
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+
+<hr class="divider">
+
+<!-- ══ RCA ══ -->
+<div class="section">
+  <div class="section-title red">⑥ RCA</div>
+
+  
+  <div class="summary-box">The load test revealed significant performance degradation primarily due to memory pressure, which led to a cascade of failures. Memory availability decreased sharply, triggering excessive garbage collection and CPU saturation. This resulted in increased disk queue lengths and prolonged response times, causing HTTP 5xx errors and transaction failures. The probable root cause is inefficient memory usage or a memory leak. Immediate remediation should focus on optimizing memory allocation and garbage collection settings to alleviate pressure on system resources.</div>
+  
+
+  
+  <p style="font-size:12px;color:#374151;margin-bottom:14px">
+    <strong>Leading indicator:</strong>
+    <span style="color:#991b1b">sla_breach</span>
+    &nbsp;—&nbsp; loadrunner
+    &nbsp;|&nbsp; first seen: 2024-06-19 08:00:06+00:00
+  </p>
+  
+
+  
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:8px">Cause → effect chain</p>
+  <ol class="chain" style="margin-bottom:16px">
+    
+    <li>
+      <div class="chain-num">1</div>
+      <div class="chain-txt">Memory pressure leads to increased garbage collection activity.</div>
+    </li>
+    
+    <li>
+      <div class="chain-num">2</div>
+      <div class="chain-txt">Increased garbage collection causes CPU saturation as observed with 97.9278% CPU usage.</div>
+    </li>
+    
+    <li>
+      <div class="chain-num">3</div>
+      <div class="chain-txt">CPU saturation results in slower processing times, contributing to increased disk queue lengths.</div>
+    </li>
+    
+    <li>
+      <div class="chain-num">4</div>
+      <div class="chain-txt">Disk queue saturation causes delays in I/O operations, impacting application response times.</div>
+    </li>
+    
+    <li>
+      <div class="chain-num">5</div>
+      <div class="chain-txt">Prolonged response times lead to HTTP 5xx errors and transaction failures.</div>
+    </li>
+    
+  </ol>
+  
+
+  
+  <p style="font-size:11px;font-weight:600;color:#374151;margin-bottom:10px">Ranked hypotheses</p>
+  
+  <div class="hyp-card r1">
+    <div class="hyp-header">
+      <div class="hyp-rank">1</div>
+      <div class="hyp-text">Application misconfiguration is leading to systemic failures.</div>
+      <span class="conf-badge conf-Medium">Medium</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> Consistent transaction failures and HTTP 5xx errors suggest systemic issues.
+      &nbsp;|&nbsp; <strong>Sources:</strong> loadrunner, iis
+    </div>
+  </div>
+  
+  <div class="hyp-card r2">
+    <div class="hyp-header">
+      <div class="hyp-rank">2</div>
+      <div class="hyp-text">Memory leak or inefficient memory usage is causing memory pressure.</div>
+      <span class="conf-badge conf-High">High</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> Decreasing memory_mem_available_mb and high mem_committed_pct (98%) indicate memory pressure.
+      &nbsp;|&nbsp; <strong>Sources:</strong> blg
+    </div>
+  </div>
+  
+  <div class="hyp-card r3">
+    <div class="hyp-header">
+      <div class="hyp-rank">3</div>
+      <div class="hyp-text">Excessive garbage collection is leading to CPU saturation.</div>
+      <span class="conf-badge conf-High">High</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> High CPU usage (97.9278%) coincides with memory pressure and decreasing memory_mem_available_mb.
+      &nbsp;|&nbsp; <strong>Sources:</strong> blg
+    </div>
+  </div>
+  
+  <div class="hyp-card r3">
+    <div class="hyp-header">
+      <div class="hyp-rank">4</div>
+      <div class="hyp-text">I/O operations are bottlenecked due to disk queue saturation.</div>
+      <span class="conf-badge conf-Medium">Medium</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> Disk queue length increasing and exceeding threshold (4.4871 actual vs 2.0 threshold).
+      &nbsp;|&nbsp; <strong>Sources:</strong> blg
+    </div>
+  </div>
+  
+  <div class="hyp-card r3">
+    <div class="hyp-header">
+      <div class="hyp-rank">5</div>
+      <div class="hyp-text">Database contention is causing transaction failures.</div>
+      <span class="conf-badge conf-Medium">Medium</span>
+    </div>
+    <div class="hyp-evidence">
+      <strong>Evidence:</strong> SQL deadlocks and lock waits exceed thresholds, impacting database performance.
+      &nbsp;|&nbsp; <strong>Sources:</strong> loadrunner
+    </div>
+  </div>
+  
+  
+
+  
+  <p style="font-size:11px;font-weight:600;color:#374151;margin:16px 0 8px">Log patterns detected</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Pattern</th><th>Count</th><th>Severity</th><th>Method</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td>sla_breach</td>
+          <td>12</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td>regex</td>
+          <td style="color:#6b7280">SLA / transaction failure: 12 occurrences</td>
+        </tr>
+        
+        <tr>
+          <td>deadlock</td>
+          <td>300</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td>regex</td>
+          <td style="color:#6b7280">Deadlock detected: 300 occurrences</td>
+        </tr>
+        
+        <tr>
+          <td>transaction_failures_with_high_duration</td>
+          <td>10</td>
+          <td><span class="badge critical">CRITICAL</span></td>
+          <td>llm</td>
+          <td style="color:#6b7280">Multiple transactions are failing with high durations, indicating potential systemic performance issues. This often suggests underlying bottlenecks such as database contention, thread pool exhaustion, or GC pressure, which can severely impact user experience.</td>
+        </tr>
+        
+        <tr>
+          <td>consistent_transaction_failure</td>
+          <td>10</td>
+          <td><span class="badge warn">WARN</span></td>
+          <td>llm</td>
+          <td style="color:#6b7280">All logged transactions are failing, which is a strong indicator of a systemic issue rather than a transient spike. This could be due to misconfiguration, resource exhaustion, or a critical service being down.</td>
+        </tr>
+        
+        <tr>
+          <td>no_deadlocks_detected</td>
+          <td>1</td>
+          <td><span class="badge info">INFO</span></td>
+          <td>llm</td>
+          <td style="color:#6b7280">No deadlocks were detected during the test, which suggests that database locking is not a contributing factor to the observed transaction failures. This is a positive sign, indicating that the database is not experiencing contention at the lock level.</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+</div>
+
+<!-- ══ FOOTER ══ -->
+<div class="footer">
+  Generated by AI-Driven PT Log Mining Pipeline &nbsp;·&nbsp;
+  Performance Engineering &nbsp;·&nbsp; 2026-07-01 09:50 UTC
+</div>
+
+</div><!-- end .page -->
+</body>
+</html>
