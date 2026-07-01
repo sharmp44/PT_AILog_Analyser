@@ -39,7 +39,7 @@ test_phases:
 
 report:
   company_name: "Performance Engineering"
-  test_name: ""                      # Override report title (e.g. "Smoke Test – Sprint 42"). Leave blank to auto-derive from LR filename.
+  test_name: "AI Log Analyser"                      # Override report title (e.g. "Smoke Test – Sprint 42"). Leave blank to auto-derive from LR filename.
   logo_path: ""                      # Optional path to logo PNG
 
 sql_sla:
