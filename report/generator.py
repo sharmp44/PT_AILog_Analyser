@@ -724,7 +724,7 @@ def _build_pdf_html(ctx: dict) -> str:
   li{{margin-bottom:4px;line-height:1.5}}
 </style>
 </head><body>
-<h1>Performance Test Report — {ctx.get('lr_summary', {}).get('test_name', '') or ctx.get('company_name', 'AI Log Analyser')}</h1>
+<h1>Performance Test Report — {(ctx.get('lr_summary') or {}).get('test_name', '') or ctx.get('company_name', 'AI Log Analyser')}</h1>
 <p class="meta">Run ID: {ctx.get('run_id','?')} &nbsp;|&nbsp; Generated: {ctx.get('generated_at','?')} &nbsp;|&nbsp; {ctx.get('company_name','')}</p>
 <p style="margin-top:8px">Verdict: <span class="verdict">{verdict}</span></p>
 
