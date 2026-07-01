@@ -331,11 +331,25 @@ def run_pipeline_ui(file_paths: list[Path], cfg: dict, output_dir: Path,
 
     # ── Phase 4: Correlation & RCA ────────────────────────────────────────────
     st.markdown("**④ Correlating findings & building RCA…**")
+
+    # Compute LR KPIs for verdict gating (same logic as main.py)
+    lr_data     = combined[combined["source"] == "loadrunner"]
+    avg_rt_vals = lr_data[lr_data["metric_name"] == "avg_response_sec"]["value"]
+    if avg_rt_vals.empty:
+        avg_rt_vals = lr_data[lr_data["metric_name"] == "tx_response_sec"]["value"]
+    tps_vals = lr_data[lr_data["metric_name"] == "tps"]["value"]
+    lr_kpis = {
+        "avg_response_sec": float(avg_rt_vals.mean()) if not avg_rt_vals.empty else None,
+        "achieved_tps":     float(tps_vals.mean())    if not tps_vals.empty    else None,
+    }
+
     causal_result = causal_agent.run(anomaly_f, trend_f, threshold_f, pattern_f, cfg)
     tl = timeline_mod.build(anomaly_f, trend_f, threshold_f, pattern_f)
     rca = rca_engine.build(
         causal_result, tl,
         anomaly_f, trend_f, threshold_f, pattern_f,
+        lr_kpis=lr_kpis,
+        cfg=cfg,
         output_dir=str(output_dir),
     )
 
