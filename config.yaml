@@ -7,10 +7,17 @@ pipeline:
   db_path: "/tmp/pt_pipeline.duckdb"  # DuckDB data store (use /tmp to avoid network-FS locking)
 
 openai:
-  api_key: ""                         # Set via env var OPENAI_API_KEY (preferred)
+  # ── Default: OpenAI ───────────────────────────────────────────────────────────
+  # Set OPENAI_API_KEY in your .env file → uses api.openai.com automatically.
+  api_key: ""
   model: "gpt-4o"                     # OpenAI: gpt-4o | Groq: llama-3.3-70b-versatile | Gemini: gemini-2.0-flash
   base_url: ""                        # Leave blank for OpenAI. Groq: https://api.groq.com/openai/v1
   max_tokens: 4096
+
+  # ── Alternative: GitHub Models ────────────────────────────────────────────────
+  # Set GITHUB_TOKEN in your .env instead of OPENAI_API_KEY to switch automatically.
+  # GitHub Models endpoint: https://models.inference.ai.azure.com
+  # Supported models: gpt-4o, gpt-4o-mini, Meta-Llama-3.1-70B-Instruct, Mistral-large
 
 sla:
   # ── Verdict gate (LR-based pass/fail) ────────────────────────────────────────

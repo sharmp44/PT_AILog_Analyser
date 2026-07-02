@@ -3,6 +3,12 @@ import os
 import yaml
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()          # loads .env from project root automatically
+except ImportError:
+    pass
+
 _DEFAULT_CFG = Path(__file__).parent.parent / "config.yaml"
 _LOCAL_CFG   = Path(__file__).parent.parent / "config.local.yaml"
 
@@ -18,10 +24,18 @@ def load_config(path: Path | None = None) -> dict:
             local = yaml.safe_load(f) or {}
         cfg = _deep_merge(cfg, local)
 
-    # Allow env var override for OpenAI key
-    env_key = os.environ.get("OPENAI_API_KEY", "")
-    if env_key:
-        cfg.setdefault("openai", {})["api_key"] = env_key
+    # Allow env var override for API key.
+    # GITHUB_TOKEN takes priority → switches to GitHub Models automatically.
+    # Falls back to OPENAI_API_KEY for the default OpenAI endpoint.
+    github_token = os.environ.get("GITHUB_TOKEN", "")
+    openai_key   = os.environ.get("OPENAI_API_KEY", "")
+
+    if github_token:
+        cfg.setdefault("openai", {})["api_key"]  = github_token
+        cfg["openai"]["base_url"] = "https://models.inference.ai.azure.com"
+    elif openai_key:
+        cfg.setdefault("openai", {})["api_key"] = openai_key
+        cfg["openai"]["base_url"] = ""   # ensure OpenAI endpoint when using OpenAI key
 
     return cfg
 
