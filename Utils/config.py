@@ -5,7 +5,9 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()          # loads .env from project root automatically
+    # Always load from project root (parent of Utils/), regardless of cwd
+    _ENV_FILE = Path(__file__).parent.parent / ".env"
+    load_dotenv(dotenv_path=_ENV_FILE)
 except ImportError:
     pass
 
