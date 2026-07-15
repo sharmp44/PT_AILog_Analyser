@@ -835,7 +835,7 @@ if uploaded_files:
             },
             "openai": {
                 **base_cfg.get("openai", {}),
-                "api_key":  os.environ.get("OPENAI_API_KEY", "").strip(),
+                "api_key":  os.environ.get("GITHUB_TOKEN", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip() or base_cfg.get("openai", {}).get("api_key", ""),
                 "base_url": os.environ.get("OPENAI_BASE_URL", base_cfg.get("openai", {}).get("base_url", "")),
                 "model":    os.environ.get("OPENAI_MODEL",    base_cfg.get("openai", {}).get("model", "gpt-4o")),
             },
