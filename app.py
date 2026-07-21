@@ -664,15 +664,15 @@ with st.sidebar:
     with st.expander("Expand to set per-source timezones", expanded=False):
         st.caption("All sources will be aligned to UTC before analysis.")
         tz_iis = st.selectbox("🌐 IIS Log Timezone",       _TZ_OPTIONS, index=0)
-        tz_blg = st.selectbox("🪟 BLG / PerfMon Timezone", _TZ_OPTIONS, index=1)
-        tz_lr  = st.selectbox("🏃 LoadRunner Timezone",     _TZ_OPTIONS, index=1)
-        tz_sql = st.selectbox("🗄️ SQL Server Timezone",     _TZ_OPTIONS, index=1)
+        tz_blg = st.selectbox("🪟 BLG / PerfMon Timezone", _TZ_OPTIONS, index=0)
+        tz_lr  = st.selectbox("🏃 LoadRunner Timezone",     _TZ_OPTIONS, index=0)
+        tz_sql = st.selectbox("🗄️ SQL Server Timezone",     _TZ_OPTIONS, index=0)
 
     tz_cfg = {
         "iis": _TZ_MAP.get(tz_iis if "tz_iis" in dir() else "UTC / GMT", "UTC"),
-        "blg": _TZ_MAP.get(tz_blg if "tz_blg" in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
-        "lr":  _TZ_MAP.get(tz_lr  if "tz_lr"  in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
-        "sql": _TZ_MAP.get(tz_sql if "tz_sql" in dir() else "Europe/London (BST/GMT auto)", "Europe/London"),
+        "blg": _TZ_MAP.get(tz_blg if "tz_blg" in dir() else "UTC / GMT", "UTC"),
+        "lr":  _TZ_MAP.get(tz_lr  if "tz_lr"  in dir() else "UTC / GMT", "UTC"),
+        "sql": _TZ_MAP.get(tz_sql if "tz_sql" in dir() else "UTC / GMT", "UTC"),
     }
 
     # ── 4. Time Window (PURPLE) ──────────────────────────────────────────────

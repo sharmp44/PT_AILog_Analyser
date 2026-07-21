@@ -68,10 +68,8 @@ _RULES: list[tuple[str, str, str, str, str, str]] = [
 
 
 def _agg(series: pd.Series, agg: str) -> float:
-    if agg == "p95":
-        return float(np.percentile(series.values, 95))
-    if agg == "p90":
-        return float(np.percentile(series.values, 90))
+    if agg.startswith("p") and agg[1:].isdigit():
+        return float(np.percentile(series.values, int(agg[1:])))
     if agg == "max":
         return float(series.max())
     if agg == "min":
@@ -92,7 +90,21 @@ def run(df: pd.DataFrame, cfg: dict | None = None) -> list[dict]:
 
     findings: list[ThresholdFinding] = []
 
+    # The "LR Transaction Percentile" slider in the UI writes cfg["sla"]["lr_percentile"]
+    # and cfg["sla"][f"p{lr_pct}_latency_ms"] (see app.py / report/generator.py), but this
+    # agent used to hardcode response-time rules to p95 and always label them "P95 Latency
+    # SLA Breach" regardless of what percentile was selected. Resolve it here so the
+    # aggregation, threshold lookup, and label all follow the configured percentile.
+    lr_pct = int(sla.get("lr_percentile", 95))
+
     for (pattern, agg, cfg_key, op, label, kpi) in _RULES:
+
+        if pattern in ("response_time_ms", "tx_response_sec"):
+            agg = f"p{lr_pct}"
+            dyn_key = f"p{lr_pct}_latency_ms"
+            cfg_key = dyn_key if dyn_key in sla else "p95_latency_ms"
+            label = (f"P{lr_pct} Latency SLA Breach" if pattern == "response_time_ms"
+                      else f"Transaction P{lr_pct} Breach")
 
         # ── Special case: HTTP 5xx ────────────────────────────────────────
         if pattern == "http_status":
@@ -159,7 +171,9 @@ def run(df: pd.DataFrame, cfg: dict | None = None) -> list[dict]:
         if breaches.empty and not overall_breach:
             continue
 
-        if overall_breach or not breaches.empty:
+        if overall_breach:
+            # The aggregate stat itself (e.g. p95, max, min) breaches the SLA
+            # threshold — "actual" below is that aggregate, matching the rule name.
             severity = "critical" if (
                 (op == "gt" and actual > threshold * 1.2) or
                 (op == "lt" and actual < threshold * 0.8)
@@ -172,6 +186,29 @@ def run(df: pd.DataFrame, cfg: dict | None = None) -> list[dict]:
                 phase=str(matches["phase"].mode().iloc[0] if not matches["phase"].empty else ""),
                 start_ts=str(breaches["timestamp"].min() if not breaches.empty else matches["timestamp"].min()),
                 end_ts=str(breaches["timestamp"].max() if not breaches.empty else matches["timestamp"].max()),
+            ))
+        elif not breaches.empty:
+            # The aggregate stat (e.g. p95) is within SLA, but one or more
+            # individual samples spiked past the threshold. Reported as a
+            # distinct finding so "actual" always matches what the rule name
+            # claims. Previously this branch was merged with the aggregate
+            # case above and silently reused the aggregate value here — e.g.
+            # showing "actual: 195ms" next to a "P95 Latency SLA Breach"
+            # label even though the p95 (195ms) never crossed the 2000ms
+            # threshold; it was a couple of outlier requests that did.
+            spike_value = float(breaches["value"].max()) if op == "gt" else float(breaches["value"].min())
+            severity = "critical" if (
+                (op == "gt" and spike_value > threshold * 1.2) or
+                (op == "lt" and spike_value < threshold * 0.8)
+            ) else "warn"
+            findings.append(ThresholdFinding(
+                metric_name=pattern, source=str(matches["source"].iloc[0]),
+                rule_name=f"{label} - Individual Spike(s)", threshold=threshold,
+                actual=round(spike_value, 4), breach_count=len(breaches),
+                severity=severity, business_kpi=kpi,
+                phase=str(matches["phase"].mode().iloc[0] if not matches["phase"].empty else ""),
+                start_ts=str(breaches["timestamp"].min()),
+                end_ts=str(breaches["timestamp"].max()),
             ))
 
     log.info(f"[threshold_agent] {len(findings)} threshold breaches")
