@@ -120,25 +120,21 @@ def _llm_pass(suspicious_lines: list[str], cfg: dict) -> list[PatternFinding]:
 
     llm_cfg  = cfg.get("openai", {})
     api_key  = llm_cfg.get("api_key", "").strip()
-    base_url = llm_cfg.get("base_url", "")   # e.g. https://api.groq.com/openai/v1
 
     if not api_key:
         log.warning("[pattern_agent] No API key – skipping LLM pass")
         return []
 
     try:
-        from openai import OpenAI
-        client = OpenAI(
-            api_key=api_key,
-            timeout=60.0,
-            max_retries=5,
-            **({ "base_url": base_url } if base_url else {}),
-        )
+        from Utils.llm_client import get_llm_client
+        client, model = get_llm_client(llm_cfg)
+    except ValueError as exc:
+        log.warning(f"[pattern_agent] LLM provider misconfigured – skipping LLM pass: {exc}")
+        return []
     except ImportError:
         log.warning("[pattern_agent] openai package not installed – skipping LLM pass")
         return []
 
-    model = llm_cfg.get("model", "gpt-4o")
     log.info(f"[pattern_agent] Sending {len(suspicious_lines)} lines to {model} for semantic analysis …")
 
     prompt = f"""You are a performance testing and engineering SME with 15+ years of hands-on experience \

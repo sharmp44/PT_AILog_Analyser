@@ -19,6 +19,18 @@ openai:
   # GitHub Models endpoint: https://models.inference.ai.azure.com
   # Supported models: gpt-4o, gpt-4o-mini, Meta-Llama-3.1-70B-Instruct, Mistral-large
 
+  # NOTE: GitHub Models access has been reported non-functional since Aug 2026.
+
+  # ── Alternative: Client-hosted Azure OpenAI (KDD Section 6.1 — Option A) ────────────
+  # Set these in your .env instead of OPENAI_API_KEY to switch automatically:
+  #   AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT
+  #   AZURE_OPENAI_API_VERSION (optional - defaults to 2024-10-21)
+  # Or set the equivalent keys below directly / in config.local.yaml:
+  # provider: "azure"
+  # azure_endpoint: "https://<your-resource-name>.openai.azure.com"
+  # azure_deployment: "<your-gpt-4o-or-current-gen-deployment-name>"
+  # api_version: "2024-10-21"
+
 sla:
   # ── Verdict gate (LR-based pass/fail) ────────────────────────────────────────
   avg_response_time_sla_sec: 1.0     # PASS requires avg response time < this value (seconds)

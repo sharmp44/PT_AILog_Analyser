@@ -55,20 +55,17 @@ def run(
     cfg = cfg or {}
     llm_cfg  = cfg.get("openai", {})
     api_key  = llm_cfg.get("api_key", "").strip()
-    base_url = llm_cfg.get("base_url", "")   # e.g. https://api.groq.com/openai/v1
 
     if not api_key:
         log.warning("[causal_agent] No API key – returning fallback analysis")
         return _FALLBACK_ANALYSIS.to_dict()
 
     try:
-        from openai import OpenAI
-        client = OpenAI(
-            api_key=api_key,
-            timeout=60.0,
-            max_retries=5,
-            **({ "base_url": base_url } if base_url else {}),
-        )
+        from Utils.llm_client import get_llm_client
+        client, model = get_llm_client(llm_cfg)
+    except ValueError as exc:
+        log.warning(f"[causal_agent] LLM provider misconfigured – returning fallback: {exc}")
+        return _FALLBACK_ANALYSIS.to_dict()
     except ImportError:
         log.warning("[causal_agent] openai not installed – returning fallback")
         return _FALLBACK_ANALYSIS.to_dict()
@@ -135,7 +132,6 @@ Evidence:
 {evidence_json}
 """
 
-    model = cfg.get("openai", {}).get("model", "gpt-4o")
     log.info(f"[causal_agent] Calling {model} for causal analysis …")
 
     try:

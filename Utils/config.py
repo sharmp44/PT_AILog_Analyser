@@ -26,18 +26,43 @@ def load_config(path: Path | None = None) -> dict:
             local = yaml.safe_load(f) or {}
         cfg = _deep_merge(cfg, local)
 
-    # Allow env var override for API key.
-    # GITHUB_TOKEN takes priority → switches to GitHub Models automatically.
-    # Falls back to OPENAI_API_KEY for the default OpenAI endpoint.
+    # Allow env var override for API key / provider.
+    # Priority: Azure OpenAI (KDD Section 6.1, Option A) > GitHub Models > direct OpenAI.
+    azure_key         = os.environ.get("AZURE_OPENAI_API_KEY", "")
+    azure_endpoint    = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    azure_deployment  = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "")
+    azure_api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "")
     github_token = os.environ.get("GITHUB_TOKEN", "")
     openai_key   = os.environ.get("OPENAI_API_KEY", "")
 
-    if github_token:
-        cfg.setdefault("openai", {})["api_key"]  = github_token
-        cfg["openai"]["base_url"] = "https://models.inference.ai.azure.com"
+    # NOTE: priority is Azure > direct OpenAI > GitHub Models. GitHub Models was
+    # moved to lowest priority because it has been reported non-functional since
+    # Aug 2026 - if both OPENAI_API_KEY and a leftover GITHUB_TOKEN are present
+    # in .env, we should not silently route through the broken endpoint.
+    if azure_key and azure_endpoint:
+        # Option A — client-hosted Azure OpenAI inside the client network.
+        oc = cfg.setdefault("openai", {})
+        oc["provider"]         = "azure"
+        oc["api_key"]          = azure_key
+        oc["azure_endpoint"]   = azure_endpoint
+        oc["azure_deployment"] = azure_deployment or oc.get("azure_deployment", "")
+        oc["api_version"]      = azure_api_version or oc.get("api_version", "2024-10-21")
+        oc["base_url"] = ""
     elif openai_key:
-        cfg.setdefault("openai", {})["api_key"] = openai_key
-        cfg["openai"]["base_url"] = ""   # ensure OpenAI endpoint when using OpenAI key
+        oc = cfg.setdefault("openai", {})
+        oc["provider"] = "openai"
+        oc["api_key"]  = openai_key
+        oc["base_url"] = ""   # ensure OpenAI endpoint when using OpenAI key
+    elif github_token:
+        oc = cfg.setdefault("openai", {})
+        oc["provider"] = "openai"
+        oc["api_key"]  = github_token
+        oc["base_url"] = "https://models.github.ai/inference"
+        # GitHub Models' new endpoint requires publisher-prefixed model names
+        # (e.g. "openai/gpt-4o" instead of "gpt-4o").
+        model = oc.get("model", "")
+        if model and "/" not in model:
+            oc["model"] = f"openai/{model}"
 
     return cfg
 
