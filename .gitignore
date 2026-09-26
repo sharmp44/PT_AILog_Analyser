@@ -21,6 +21,7 @@ dist/
 build/
 .venv/
 venv/
+venv_pt/
 
 # VS Code
 .vscode/settings.json
